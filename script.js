@@ -1,5 +1,5 @@
 // ==========================================
-// CONFIGURAÇÃO FIREBASE & TMDB API
+// CONFIGURAÇÃO FIREBASE E TMDB API
 // ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
@@ -25,7 +25,7 @@ let debounceSearchTimer;
 let isLoginMode = true;
 
 // ==========================================
-// UTILITÁRIOS & GESTÃO DE ECRÃS
+// UI & SCROLL MANAGEMENT
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -36,19 +36,23 @@ function showToast(msg) {
     setTimeout(() => t.remove(), 3500);
 }
 
+// Efeito de escurecer Navbar no scroll
 window.addEventListener('scroll', () => {
     const nav = document.getElementById('main-navbar');
     if (window.scrollY > 50) nav.classList.add('scrolled');
     else nav.classList.remove('scrolled');
 });
 
-// A SOLUÇÃO: Esconder abas limpas para prevenir sobreposições de pesquisa/lista
 function resetViews() {
     document.getElementById('hero-banner').style.display = 'none';
     document.getElementById('search-results-section').style.display = 'none';
     document.getElementById('watchlist-section').style.display = 'none';
     document.getElementById('continue-watching-section').style.display = 'none';
     document.getElementById('categories-container').style.display = 'none';
+}
+
+function lockScroll(lock) {
+    document.body.style.overflow = lock ? 'hidden' : 'auto';
 }
 
 // ==========================================
@@ -109,9 +113,13 @@ function abrirModalPerfil() {
         document.getElementById('edit-avatar-url').value = user.photoURL || '';
     }
     document.getElementById('profile-modal').style.display = 'flex';
+    lockScroll(true);
 }
 
-function fecharModalPerfil() { document.getElementById('profile-modal').style.display = 'none'; }
+function fecharModalPerfil() { 
+    document.getElementById('profile-modal').style.display = 'none'; 
+    lockScroll(false);
+}
 
 async function guardarPerfil(e) {
     e.preventDefault();
@@ -129,8 +137,8 @@ async function guardarPerfil(e) {
 // ==========================================
 // CINEBOT (CHAT IA)
 // ==========================================
-function abrirChat() { document.getElementById('chat-modal').style.display = 'flex'; }
-function fecharChat() { document.getElementById('chat-modal').style.display = 'none'; }
+function abrirChat() { document.getElementById('chat-modal').style.display = 'flex'; lockScroll(true); }
+function fecharChat() { document.getElementById('chat-modal').style.display = 'none'; lockScroll(false); }
 
 function adicionarMsgChat(texto, remetente) {
     const msgs = document.getElementById('chat-messages');
@@ -164,16 +172,16 @@ async function enviarMensagemBot(txt) {
         const title = item.title || item.name;
         
         const html = `Recomendo este para ti:
-            <div class="bot-card" style="display:flex;gap:10px;margin-top:8px;background:rgba(0,0,0,0.5);padding:8px;border-radius:6px;cursor:pointer;" onclick="assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
-                <img src="${img}" style="width:45px;border-radius:4px;" />
-                <div style="font-size:0.85rem;"><strong>${title}</strong><p style="color:#aaa;margin-top:3px;">▶ Assistir Agora</p></div>
+            <div style="display:flex;gap:12px;margin-top:10px;background:#222;padding:10px;border-radius:8px;cursor:pointer;border:1px solid #333;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
+                <img src="${img}" style="width:50px;border-radius:4px;object-fit:cover;" />
+                <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:#aaa;margin-top:4px;font-size:0.8rem;">▶ Assistir Agora</p></div>
             </div>`;
         setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
     }
 }
 
 // ==========================================
-// TMDB, CATÁLOGOS E FILTROS (ABAS)
+// TMDB E NAVEGAÇÃO
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
@@ -193,8 +201,6 @@ const CATEGORIAS = [
 
 async function carregarInicio() {
     document.getElementById('search-input').value = '';
-    
-    // Mostra o Hero Banner e Content
     resetViews();
     document.getElementById('hero-banner').style.display = 'flex';
     document.getElementById('categories-container').style.display = 'block';
@@ -218,19 +224,19 @@ function configurarHero(item) {
 
     document.getElementById('hero-banner').style.backgroundImage = `url('${bg}')`;
     document.getElementById('hero-title').innerText = title;
-    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 150) + '...' : 'Assista já em HD.';
+    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD.';
     
     document.getElementById('hero-play-btn').onclick = () => assistirFilme(item.id, title, poster);
     
     const isSaved = minhaListaIDs.has(String(item.id));
     const wlBtn = document.getElementById('hero-watchlist-btn');
-    wlBtn.innerText = isSaved ? '✓ Na Minha Lista' : '+ A minha Lista';
+    wlBtn.innerHTML = isSaved ? '✓ Na Minha Lista' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 5v14M5 12h14"/></svg> A minha Lista';
     wlBtn.onclick = () => toggleMinhaLista({ id: item.id, title: title, coverImage: poster });
 }
 
 function renderizarCarrossel(titulo, items, type = 'movie') {
     const c = document.getElementById('categories-container');
-    const s = document.createElement('section'); s.className = 'section-container';
+    const s = document.createElement('section'); s.className = 'section-container fade-in-up';
     let html = `<h2 class="section-title">${titulo}</h2><div class="movie-row">`;
     items.forEach(i => { if (i.poster_path) html += criarCardHTML(i, type); });
     s.innerHTML = html + `</div>`;
@@ -255,7 +261,7 @@ function criarCardHTML(item, type = 'movie') {
 }
 
 // ==========================================
-// PESQUISA EM TEMPO REAL & NAVEGAÇÃO
+// PESQUISA E CATEGORIAS
 // ==========================================
 async function pesquisarTitulos(e) {
     const q = e.target.value.trim();
@@ -295,7 +301,7 @@ async function filtrarCategoria(cat, element, event) {
     document.getElementById('categories-container').style.display = 'block';
     
     const c = document.getElementById('categories-container');
-    c.innerHTML = '<p style="padding: 20px 4%; color: #aaa; text-align: center;">A carregar o catálogo...</p>';
+    c.innerHTML = '<p style="padding: 40px 4%; color: #aaa; text-align: center;">A procurar...</p>';
 
     const map = {
         'movie': {e: '/movie/popular', t: 'Filmes em Alta', type: 'movie'},
@@ -313,7 +319,7 @@ async function filtrarCategoria(cat, element, event) {
 }
 
 // ==========================================
-// A MINHA LISTA & HISTÓRICO
+// A MINHA LISTA E HISTÓRICO
 // ==========================================
 async function toggleMinhaLista(data) {
     const user = auth.currentUser;
@@ -322,10 +328,10 @@ async function toggleMinhaLista(data) {
     const ref = db.collection('users').doc(user.uid).collection('watchlist').doc(id);
 
     if (minhaListaIDs.has(id)) {
-        await ref.delete(); minhaListaIDs.delete(id); showToast("Removido da sua Lista.");
+        await ref.delete(); minhaListaIDs.delete(id); showToast("Removido da Lista.");
     } else {
         await ref.set({ id: id, title: data.title, coverImage: data.coverImage, addedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        minhaListaIDs.add(id); showToast("Guardado na sua Lista!");
+        minhaListaIDs.add(id); showToast("Guardado na Lista!");
     }
     
     document.querySelectorAll(`[onclick*="id:'${id}'"]`).forEach(b => {
@@ -356,8 +362,7 @@ async function carregarSecaoMinhaLista(uid) {
     s.style.display = 'block'; r.innerHTML = '<p style="color: #aaa;">A carregar...</p>';
     
     const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
-    
-    if (snap.empty) { r.innerHTML = '<p style="color: #aaa;">A sua lista está vazia.</p>'; return; }
+    if (snap.empty) { r.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">A sua lista está vazia.</p>'; return; }
     
     r.innerHTML = '';
     snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
@@ -367,9 +372,8 @@ async function carregarFilaContinueAVer(uid) {
     const s = document.getElementById('continue-watching-section');
     const r = document.getElementById('continue-watching-row');
     const snap = await db.collection('users').doc(uid).collection('continueWatching').orderBy('lastWatched','desc').limit(10).get();
-    if (snap.empty) { s.style.display = 'none'; return; }
     
-    if (document.getElementById('hero-banner').style.display === 'none') return; 
+    if (snap.empty || document.getElementById('hero-banner').style.display === 'none') { s.style.display = 'none'; return; } 
 
     s.style.display = 'block'; r.innerHTML = '';
     snap.forEach(doc => {
@@ -377,13 +381,14 @@ async function carregarFilaContinueAVer(uid) {
         r.innerHTML += `
             <div class="movie-card" tabindex="0" onclick="assistirFilme('${d.movieId}','${d.title.replace(/'/g, "\\'")}','${d.coverImage}')">
                 <img src="${d.coverImage}" />
+                <div class="card-info"><span class="card-title">${d.title}</span></div>
                 <div class="progress-bar-container"><div class="progress-bar" style="width:100%"></div></div>
             </div>`;
     });
 }
 
 // ==========================================
-// PLAYER & FULLSCREEN MÁXIMO
+// PLAYER & MODAL SÉRIES
 // ==========================================
 function assistirFilme(id, title, img) {
     abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
@@ -399,26 +404,16 @@ function abrirVideo(url, id, title, img) {
     
     iframe.src = url;
     container.style.display = 'flex';
+    lockScroll(true);
 
-    // 1. TENTA ECRÃ COMPLETO NO CONTAINER (Garante que o botão fechar vai junto)
     try {
-        if (container.requestFullscreen) {
-            container.requestFullscreen();
-        } else if (container.webkitRequestFullscreen) { // iOS/Safari
-            container.webkitRequestFullscreen();
-        } else if (container.msRequestFullscreen) { // IE11/Edge
-            container.msRequestFullscreen();
-        }
+        if (container.requestFullscreen) container.requestFullscreen();
+        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+        else if (container.msRequestFullscreen) container.msRequestFullscreen();
+        
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e=>{});
+    } catch (e) { }
 
-        // 2. TENTA RODAR O TELEMÓVEL PARA DEITADO
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(e => console.warn('Rotação auto bloqueada pelo device:', e));
-        }
-    } catch (e) {
-        console.warn('Ecrã Completo Nativo bloqueado até o user interagir.');
-    }
-
-    // Gravar no histórico
     const user = auth.currentUser;
     if (user) {
         db.collection('users').doc(user.uid).collection('continueWatching').doc(String(id)).set({
@@ -429,29 +424,20 @@ function abrirVideo(url, id, title, img) {
 
 function fecharPlayer() {
     const container = document.getElementById('video-container');
-    const iframe = document.getElementById('mega-player-iframe');
-    
-    // Mata a frame e limpa ecrã
-    iframe.src = '';
+    document.getElementById('mega-player-iframe').src = '';
     container.style.display = 'none';
+    lockScroll(false);
 
-    // 3. SAIR DO ECRÃ COMPLETO E DESTRAVAR ROTAÇÃO
     try {
         if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
             if (document.exitFullscreen) document.exitFullscreen();
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
             else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
         }
-
-        if (screen.orientation && screen.orientation.unlock) {
-            screen.orientation.unlock();
-        }
-    } catch (e) {
-        console.warn('Erro ao sair do fullscreen:', e);
-    }
+        if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    } catch (e) {}
 }
 
-// Modal Episódios Séries
 async function abrirModalSerie(id, title, img) {
     document.getElementById('modal-tv-title').innerText = title;
     const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-PT`);
@@ -463,6 +449,7 @@ async function abrirModalSerie(id, title, img) {
     sel.onchange = (e) => carregarEpisodios(id, e.target.value, title, img);
     carregarEpisodios(id, 1, title, img);
     document.getElementById('episodes-modal').style.display = 'flex';
+    lockScroll(true);
 }
 
 async function carregarEpisodios(id, season, title, img) {
@@ -480,4 +467,7 @@ async function carregarEpisodios(id, season, title, img) {
     });
 }
 
-function fecharModalEpisodios() { document.getElementById('episodes-modal').style.display = 'none'; }
+function fecharModalEpisodios() { 
+    document.getElementById('episodes-modal').style.display = 'none'; 
+    lockScroll(false);
+}

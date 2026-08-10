@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#141414">
-    <title>CineNet | Streaming Premium</title>
+    <title>CineNet | Filmes e Séries</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -15,7 +15,7 @@
 <body>
 
     <div id="auth-screen" class="auth-container">
-        <div class="auth-box">
+        <div class="auth-box fade-in-up">
             <h1 id="auth-title">Iniciar Sessão</h1>
             <p id="auth-error" class="auth-error-msg"></p>
             <form id="auth-form">
@@ -49,10 +49,11 @@
             </div>
             <div class="nav-right">
                 <div class="search-box">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="text" id="search-input" placeholder="Pesquisar..." oninput="pesquisarTitulos(event)">
                 </div>
-                <button class="btn-chat-nav" onclick="abrirChat()" title="Falar com IA">🤖</button>
-                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Configurações de Perfil">
+                <button class="btn-chat-nav" onclick="abrirChat()" title="CineBot IA">🤖</button>
+                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Perfil">
                     <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
                 </div>
             </div>
@@ -65,29 +66,35 @@
                 <h1 id="hero-title">A carregar...</h1>
                 <p id="hero-desc">Descubra os melhores filmes e séries em alta definição.</p>
                 <div class="hero-buttons">
-                    <button class="btn-primary" id="hero-play-btn">▶ Assistir</button>
-                    <button class="btn-secondary" id="hero-watchlist-btn">+ A minha Lista</button>
+                    <button class="btn-primary" id="hero-play-btn">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>
+                        Assistir
+                    </button>
+                    <button class="btn-secondary" id="hero-watchlist-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 5v14M5 12h14"/></svg>
+                        A minha Lista
+                    </button>
                 </div>
             </div>
         </section>
 
         <main class="main-content">
-            <section class="section-container" id="search-results-section" style="display: none; padding-top: 100px;">
+            <section class="section-container fade-in-up" id="search-results-section" style="display: none; padding-top: 100px;">
                 <h2 class="section-title" id="search-results-title">Resultados da Pesquisa</h2>
                 <div class="movies-grid" id="search-results-row"></div>
             </section>
 
-            <section class="section-container" id="watchlist-section" style="display: none; padding-top: 100px;">
+            <section class="section-container fade-in-up" id="watchlist-section" style="display: none; padding-top: 100px;">
                 <h2 class="section-title">A minha Lista</h2>
                 <div class="movies-grid" id="watchlist-row"></div>
             </section>
 
-            <section class="section-container" id="continue-watching-section" style="display: none;">
-                <h2 class="section-title">Continuar a Ver</h2>
+            <section class="section-container fade-in-up" id="continue-watching-section" style="display: none;">
+                <h2 class="section-title">Vistos Recentemente</h2>
                 <div class="movie-row" id="continue-watching-row"></div>
             </section>
 
-            <div id="categories-container"></div>
+            <div id="categories-container" class="fade-in-up"></div>
         </main>
     </div>
 
@@ -98,7 +105,7 @@
                 <button class="close-modal-btn" onclick="fecharChat()">✕</button>
             </div>
             <div id="chat-messages" class="chat-messages">
-                <div class="chat-message bot">Olá! Sou o CineBot. Como posso ajudar a encontrar algo para assistir hoje?</div>
+                <div class="chat-message bot">Olá! Sou o assistente do CineNet. O que lhe apetece ver hoje?</div>
             </div>
             <div class="chat-quick-actions">
                 <button onclick="enviarMensagemBot('Recomenda um filme de Ação')">💥 Ação</button>
@@ -106,8 +113,8 @@
                 <button onclick="enviarMensagemBot('Surpreende-me!')">🎲 Surpresa</button>
             </div>
             <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Escreve aqui...">
-                <button class="btn-primary" onclick="enviarChatInput()">Enviar</button>
+                <input type="text" id="chat-input" placeholder="Escreve aqui a tua pergunta...">
+                <button class="btn-primary-small" onclick="enviarChatInput()">Enviar</button>
             </div>
         </div>
     </div>
@@ -115,8 +122,8 @@
     <div id="episodes-modal" class="modal-overlay" style="display: none;">
         <div class="modal-card episodes-card fade-in-up">
             <button class="close-modal-btn" onclick="fecharModalEpisodios()">✕</button>
-            <h2 id="modal-tv-title">Série</h2>
-            <div style="margin-top: 15px;">
+            <h2 id="modal-tv-title" style="margin-bottom: 15px;">Série</h2>
+            <div class="form-group">
                 <select id="season-select" class="season-dropdown"></select>
             </div>
             <div id="episodes-list" class="episodes-list-container"></div>
@@ -126,28 +133,31 @@
     <div id="profile-modal" class="modal-overlay" style="display: none;">
         <div class="modal-card fade-in-up">
             <button class="close-modal-btn" onclick="fecharModalPerfil()">✕</button>
-            <h2>O seu Perfil</h2>
+            <h2 style="margin-bottom: 25px;">Editar Perfil</h2>
             <form onsubmit="guardarPerfil(event)">
                 <div class="form-group">
                     <label>Nome de Exibição</label>
                     <input type="text" id="edit-display-name" required>
                 </div>
                 <div class="form-group">
-                    <label>URL de Imagem (Opcional)</label>
-                    <input type="url" id="edit-avatar-url">
+                    <label>URL do Avatar (Opcional)</label>
+                    <input type="url" id="edit-avatar-url" placeholder="https://...">
                 </div>
-                <div class="modal-actions">
-                    <button type="submit" class="btn-primary" style="width: 100%;">Guardar</button>
+                <div class="modal-actions" style="margin-top: 25px;">
+                    <button type="submit" class="btn-primary auth-submit-btn">Guardar Alterações</button>
                 </div>
-                <hr style="border: 0; height: 1px; background: rgba(255,255,255,0.1); margin: 20px 0;">
-                <button type="button" class="btn-secondary" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="fazerLogout()">Terminar Sessão</button>
+                <hr style="border: 0; height: 1px; background: rgba(255,255,255,0.08); margin: 25px 0;">
+                <button type="button" class="btn-secondary" style="width: 100%; border: 1px solid var(--primary); color: var(--primary); background: transparent;" onclick="fazerLogout()">Terminar Sessão</button>
             </form>
         </div>
     </div>
 
     <div id="video-container" class="video-modal" style="display: none;">
-        <button class="close-video-btn" onclick="fecharPlayer()">✕ Voltar</button>
-        <iframe id="mega-player-iframe" src="" allow="autoplay; fullscreen" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" frameborder="0"></iframe>
+        <button class="close-video-btn" onclick="fecharPlayer()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Voltar
+        </button>
+        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0"></iframe>
     </div>
 
     <div id="toast-container"></div>
