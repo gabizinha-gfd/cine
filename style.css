@@ -1,16 +1,12 @@
 /* ==========================================
-   VARIÁVEIS GLOBAIS E RESET
+   VARIÁVEIS GLOBAIS E RESET (ORIGINAL)
    ========================================== */
 :root {
     --bg-color: #050505;
-    --card-bg: #141414;
     --primary: #E50914; /* Vermelho estilo Netflix */
     --primary-glow: rgba(229, 9, 20, 0.6);
     --text-light: #F5F5F1;
-    --text-muted: #A3A3A3;
-    --glass-border: rgba(255, 255, 255, 0.1);
     --radius-sm: 8px;
-    --radius-md: 12px;
 }
 
 * {
@@ -26,97 +22,72 @@ body {
     scrollbar-width: thin;
     scrollbar-color: #333 var(--bg-color);
     overflow-x: hidden;
-    -webkit-font-smoothing: antialiased;
 }
 
 /* ==========================================
-   NAVBAR
+   ELEMENTOS DE INTERFACE (CROSS-BROWSER)
    ========================================== */
-.navbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 70px;
-    padding: 0 4%;
-    display: flex;
-    align-items: center;
-    gap: 30px;
+.navbar, .modal-bg {
     background: rgba(10, 10, 10, 0.85); 
     -webkit-backdrop-filter: blur(20px); 
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--glass-border);
-    z-index: 1000;
 }
 
 .logo {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-size: 1.5rem;
+    font-weight: bold;
     color: var(--primary);
-    text-transform: uppercase;
-    cursor: pointer;
-}
-
-.nav-links {
-    display: flex;
-    gap: 20px;
-}
-
-.nav-links .nav-item {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.95rem;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-.nav-links .nav-item:hover,
-.nav-links .nav-item.active {
-    color: var(--text-light);
-}
-
-/* ==========================================
-   CONTEÚDO E CARROSSEL
-   ========================================== */
-.main-content {
-    padding-top: 90px;
 }
 
 .section-container {
-    padding: 20px 4%;
+    padding: 80px 4% 20px 4%;
 }
 
 .section-container h2 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     margin-bottom: 12px;
 }
 
+/* Área de segurança para Mobile (Touch Targets) */
+.btn-primary, .close-modal {
+    min-height: 48px;
+    min-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* ==========================================
+   CARROSSEL E CARDS DE FILMES (ORIGINAL)
+   ========================================== */
 .movie-row {
     display: flex;
     gap: 15px;
     overflow-x: auto;
     padding-bottom: 20px;
     scroll-behavior: smooth;
-    scrollbar-width: none;
 }
 
 .movie-row::-webkit-scrollbar {
-    display: none;
+    height: 8px;
+}
+.movie-row::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
 }
 
-/* Estrutura do Cartão de Filme / Série */
+/* Estrutura do Cartão de Filme */
 .movie-card {
-    min-width: 170px;
-    width: 170px;
-    height: 255px;
-    background-color: var(--card-bg);
+    min-width: 200px;
+    height: 300px;
+    background-color: #222;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: transform 0.3s ease, border-color 0.3s ease;
-    position: relative;
-    overflow: hidden;
+    transition: transform 0.3s ease;
+    position: relative; /* Necessário para a barra de progresso */
+    overflow: hidden; /* Mantém a barra dentro dos limites do card */
     flex-shrink: 0;
-    border: 1px solid transparent;
 }
 
 .movie-card img {
@@ -127,22 +98,6 @@ body {
 
 .movie-card:hover {
     transform: scale(1.05);
-    border-color: var(--glass-border);
-}
-
-.card-info {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 10px;
-    background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent);
-}
-
-.card-title {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-light);
 }
 
 /* ==========================================
@@ -153,150 +108,85 @@ body {
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.2);
+    height: 4px; /* Altura da barra */
+    background: rgba(255, 255, 255, 0.2); /* Cinzento transparente */
     z-index: 2;
 }
 
 .progress-bar {
     height: 100%;
-    background-color: var(--primary);
-    width: 100%;
-    box-shadow: 0 0 8px var(--primary-glow);
+    background-color: var(--primary); /* Vermelho */
+    width: 0%; /* Definido pelo JavaScript */
+    transition: width 0.3s ease;
 }
 
 /* ==========================================
-   MODAL DE EPISÓDIOS (SÉRIES E ANIMES)
+   MODAL DE EPISÓDIOS (MANTENDO O MESMO DESIGN)
    ========================================== */
-.modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(10px);
-    z-index: 9000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.episodes-dialog {
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
     padding: 20px;
-}
-
-.episodes-card {
-    background: var(--card-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: 25px;
-    max-width: 600px;
+    max-width: 550px;
     width: 100%;
-    max-height: 85vh;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     position: relative;
 }
 
-.close-modal-btn {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 1.2rem;
-    cursor: pointer;
-}
-
 .season-dropdown {
     width: 100%;
     padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid var(--glass-border);
+    background: #222;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-sm);
     color: #fff;
     font-size: 0.95rem;
     outline: none;
 }
 
-.episodes-list-container {
+.episodes-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     overflow-y: auto;
-    margin-top: 15px;
+    margin-top: 10px;
     padding-right: 5px;
 }
 
-.episode-card {
+.episode-item {
     display: flex;
-    gap: 15px;
+    gap: 12px;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    padding: 10px;
+    padding: 8px;
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.2s ease;
+    align-items: center;
+    transition: background 0.2s ease;
 }
 
-.episode-card:hover {
+.episode-item:hover {
     background: rgba(229, 9, 20, 0.2);
-    border-color: var(--primary);
-    transform: translateX(4px);
 }
 
-.episode-card img {
-    width: 110px;
-    height: 65px;
+.episode-item img {
+    width: 100px;
+    height: 60px;
     object-fit: cover;
     border-radius: 4px;
-    flex-shrink: 0;
 }
 
-.ep-info h4 {
+.episode-item-info h4 {
     font-size: 0.9rem;
     color: var(--text-light);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.ep-info p {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    line-height: 1.3;
-}
-
-/* ==========================================
-   REPRODUTOR DE VÍDEO (IFRAME)
-   ========================================== */
-.video-modal {
-    position: fixed;
-    inset: 0;
-    background: #000;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.video-modal iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    background: #000;
-}
-
-.close-video-btn {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 10000;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    border: 1px solid var(--glass-border);
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.close-video-btn:hover {
-    background: var(--primary);
+.episode-item-info p {
+    font-size: 0.75rem;
+    color: #aaa;
 }
 
 /* ==========================================
@@ -310,4 +200,9 @@ body {
     transform: scale(1.05);
     transition: all 0.2s ease-in-out;
     z-index: 10;
+}
+
+/* Correção de Overscan em Smart TVs gigantes */
+@media (min-width: 1920px) {
+    .section-container { padding: 120px 5% 60px 5%; }
 }

@@ -22,10 +22,10 @@ const TMDB_API_KEY = "17c56e3825d7fbae6581866083d0d778";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 
-// Configuração do Player de Vídeo
+// Configuração do Servidor de Embeds
 const PLAYER_CONFIG = {
     server: 'mgeb', // 'mgeb' ou 'nhdapi'
-    color: 'e50914'
+    color: 'e50914'  // Cor da barra de progresso do player
 };
 
 // ==========================================
@@ -37,17 +37,16 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-document.addEventListener('keydown', (e) => {
-    const activeRow = document.activeElement.closest('.movie-row');
-    if (activeRow) {
+document.querySelectorAll('.movie-row').forEach(row => {
+    row.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') {
             e.preventDefault();
-            activeRow.scrollBy({ left: 220, behavior: 'smooth' });
+            row.scrollBy({ left: 220, behavior: 'smooth' });
         } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            activeRow.scrollBy({ left: -220, behavior: 'smooth' });
+            row.scrollBy({ left: -220, behavior: 'smooth' });
         }
-    }
+    });
 });
 
 // ==========================================
@@ -69,34 +68,37 @@ function gerarUrlEmbed(id, type = 'movie', season = 1, episode = 1) {
     }
 }
 
+// Iniciar Filme no Player
 function assistirFilme(id, title = 'Filme', coverImage = '') {
     const embedUrl = gerarUrlEmbed(id, 'movie');
     abrirModalVideo(embedUrl, id, title, coverImage);
 }
 
+// Iniciar Episódio no Player
 function assistirEpisodio(id, season, episode, title = 'Série', coverImage = '') {
     const embedUrl = gerarUrlEmbed(id, 'tv', season, episode);
-    const tituloCompleto = `${title} - T${season}:E${episode}`;
+    const tituloCompleto = `${title} (T${season}:E${episode})`;
     abrirModalVideo(embedUrl, id, tituloCompleto, coverImage);
 }
 
 function abrirModalVideo(embedUrl, id, title, coverImage) {
     const container = document.getElementById('video-container');
     const iframe = document.getElementById('mega-player-iframe');
-    const user = auth.currentUser;
+    const currentUser = auth.currentUser;
 
     if (iframe) iframe.src = embedUrl;
-    if (container) container.style.display = 'flex';
+    if (container) container.style.display = 'block';
 
-    if (user) {
-        db.collection('users').doc(user.uid).collection('continueWatching').doc(String(id)).set({
+    // Grava item no "Continuar a Ver"
+    if (currentUser) {
+        db.collection('users').doc(currentUser.uid).collection('continueWatching').doc(String(id)).set({
             movieId: String(id),
             title: title,
             coverImage: coverImage,
-            progress: 100,
+            progress: 80, // Progresso estimado visual
             lastWatched: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true }).then(() => {
-            carregarFilaContinueAVer(user.uid);
+            carregarFilaContinueAVer(currentUser.uid);
         }).catch(err => console.error("Erro ao guardar histórico:", err));
     }
 }
@@ -105,7 +107,7 @@ function fecharPlayer() {
     const container = document.getElementById('video-container');
     const iframe = document.getElementById('mega-player-iframe');
     
-    if (iframe) iframe.src = '';
+    if (iframe) iframe.src = ''; // Corta o áudio/vídeo imediatamente
     if (container) container.style.display = 'none';
 
     if (auth.currentUser) {
@@ -114,7 +116,7 @@ function fecharPlayer() {
 }
 
 // ==========================================
-// SELETOR DE TEMPORADAS E EPISÓDIOS (SÉRIES)
+// MODAL DE TEMPORADAS E EPISÓDIOS
 // ==========================================
 async function abrirModalSerie(tvId, title, coverImage) {
     const modal = document.getElementById('episodes-modal');
@@ -143,7 +145,7 @@ async function abrirModalSerie(tvId, title, coverImage) {
 
         modal.style.display = 'flex';
     } catch (e) {
-        console.error("Erro ao carregar episódios:", e);
+        console.error("Erro ao carregar série:", e);
     }
 }
 
@@ -160,18 +162,18 @@ async function carregarEpisodios(tvId, seasonNumber, title, coverImage) {
             const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : coverImage;
             const titleClean = title.replace(/'/g, "\\'");
             html += `
-                <div class="episode-card" onclick="assistirEpisodio('${tvId}', ${seasonNumber}, ${ep.episode_number}, '${titleClean}', '${coverImage}'); fecharModalEpisodios();">
+                <div class="episode-item" onclick="assistirEpisodio('${tvId}', ${seasonNumber}, ${ep.episode_number}, '${titleClean}', '${coverImage}'); fecharModalEpisodios();">
                     <img src="${epImg}" alt="Episódio ${ep.episode_number}">
-                    <div class="ep-info">
+                    <div class="episode-item-info">
                         <h4>Ep ${ep.episode_number}: ${ep.name}</h4>
-                        <p>${ep.overview ? ep.overview.substring(0, 80) + '...' : 'Sem sinopse.'}</p>
+                        <p>${ep.overview ? ep.overview.substring(0, 60) + '...' : 'Sem sinopse.'}</p>
                     </div>
                 </div>
             `;
         });
         episodesList.innerHTML = html;
     } catch (e) {
-        episodesList.innerHTML = '<p style="color: #e50914;">Erro ao carregar lista de episódios.</p>';
+        episodesList.innerHTML = '<p style="color: #e50914;">Erro ao carregar episódios.</p>';
     }
 }
 
@@ -181,94 +183,7 @@ function fecharModalEpisodios() {
 }
 
 // ==========================================
-// BUSCA DE CATÁLOGO (TMDB API)
-// ==========================================
-async function fetchTMDB(endpoint) {
-    try {
-        const separator = endpoint.includes('?') ? '&' : '?';
-        const url = `${TMDB_BASE_URL}${endpoint}${separator}api_key=${TMDB_API_KEY}&language=pt-PT`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Erro de rede TMDb");
-        const data = await res.json();
-        return data.results || [];
-    } catch (e) {
-        return [];
-    }
-}
-
-async function carregarInicio() {
-    const container = document.getElementById('categories-container');
-    container.innerHTML = '';
-
-    const categorias = [
-        { title: '🎬 Filmes Populares', endpoint: '/movie/popular', type: 'movie' },
-        { title: '📺 Séries Populares', endpoint: '/tv/popular', type: 'tv' },
-        { title: '⛩️ Animes em Destaque', endpoint: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' }
-    ];
-
-    for (const cat of categorias) {
-        const items = await fetchTMDB(cat.endpoint);
-        renderizarCarrossel(cat.title, items, cat.type);
-    }
-}
-
-function renderizarCarrossel(titulo, items, type) {
-    const container = document.getElementById('categories-container');
-    const section = document.createElement('section');
-    section.className = 'section-container';
-
-    let cardsHTML = `<h2>${titulo}</h2><div class="movie-row">`;
-    items.forEach(item => {
-        if (item.poster_path) {
-            const titleClean = (item.title || item.name || 'Título').replace(/'/g, "\\'");
-            const imgUrl = `${TMDB_IMAGE_BASE}${item.poster_path}`;
-            const clickAction = type === 'movie' 
-                ? `assistirFilme('${item.id}', '${titleClean}', '${imgUrl}')` 
-                : `abrirModalSerie('${item.id}', '${titleClean}', '${imgUrl}')`;
-
-            cardsHTML += `
-                <div class="movie-card" tabindex="0" onclick="${clickAction}">
-                    <img src="${imgUrl}" alt="${titleClean}">
-                    <div class="card-info"><span class="card-title">${titleClean}</span></div>
-                </div>
-            `;
-        }
-    });
-    cardsHTML += `</div>`;
-    
-    section.innerHTML = cardsHTML;
-    container.appendChild(section);
-}
-
-async function filtrarCategoria(categoria, element, event) {
-    if (event) event.preventDefault();
-    
-    document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
-    if (element) element.classList.add('active');
-
-    const container = document.getElementById('categories-container');
-    
-    if (categoria === 'inicio') {
-        carregarInicio();
-        return;
-    }
-
-    container.innerHTML = '<p style="padding: 20px 4%; color: #a3a3a3;">A carregar...</p>';
-
-    let endpoint = '', titulo = '', type = 'movie';
-    switch(categoria) {
-        case 'movie': endpoint = '/movie/popular'; titulo = '🎬 Filmes Populares'; type = 'movie'; break;
-        case 'tv': endpoint = '/tv/popular'; titulo = '📺 Séries Populares'; type = 'tv'; break;
-        case 'anime': endpoint = '/discover/tv?with_genres=16&with_original_language=ja'; titulo = '⛩️ Animes em Destaque'; type = 'tv'; break;
-    }
-
-    const items = await fetchTMDB(endpoint);
-    container.innerHTML = '';
-    renderizarCarrossel(titulo, items, type);
-}
-
-// ==========================================
-// HISTÓRICO "CONTINUAR A VER" (FIREBASE)
+// SISTEMA DE "CONTINUAR A VER" (FIREBASE)
 // ==========================================
 async function carregarFilaContinueAVer(userId) {
     const section = document.getElementById('continue-watching-section');
@@ -294,19 +209,72 @@ async function carregarFilaContinueAVer(userId) {
             const movie = doc.data();
             const titleClean = (movie.title || '').replace(/'/g, "\\'");
             
+            // Renderiza o card idêntico à estrutura original
             const movieCard = `
                 <div class="movie-card" tabindex="0" onclick="assistirFilme('${movie.movieId}', '${titleClean}', '${movie.coverImage}')">
                     <img src="${movie.coverImage}" alt="${movie.title}">
-                    <div class="card-info"><span class="card-title">${movie.title}</span></div>
                     <div class="progress-bar-container">
-                        <div class="progress-bar"></div>
+                        <div class="progress-bar" style="width: ${movie.progress || 80}%;"></div>
                     </div>
                 </div>
             `;
             container.innerHTML += movieCard;
         });
+    } catch (error) {
+        console.error("Erro ao carregar histórico:", error);
+    }
+}
+
+// ==========================================
+// CARREGAR CATÁLOGOS AUTOMÁTICOS (TMDB)
+// ==========================================
+async function carregarCatalogos() {
+    // 1. Filmes Populares
+    try {
+        const resMovies = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const moviesData = await resMovies.json();
+        const moviesRow = document.getElementById('popular-movies-row');
+        
+        if (moviesRow && moviesData.results) {
+            moviesRow.innerHTML = '';
+            moviesData.results.forEach(movie => {
+                if (movie.poster_path) {
+                    const imgUrl = `${TMDB_IMAGE_BASE}${movie.poster_path}`;
+                    const titleClean = (movie.title || '').replace(/'/g, "\\'");
+                    moviesRow.innerHTML += `
+                        <div class="movie-card" tabindex="0" onclick="assistirFilme('${movie.id}', '${titleClean}', '${imgUrl}')">
+                            <img src="${imgUrl}" alt="${titleClean}">
+                        </div>
+                    `;
+                }
+            });
+        }
     } catch (e) {
-        section.style.display = 'none';
+        console.error("Erro ao carregar filmes:", e);
+    }
+
+    // 2. Séries Populares
+    try {
+        const resSeries = await fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const seriesData = await resSeries.json();
+        const seriesRow = document.getElementById('popular-series-row');
+
+        if (seriesRow && seriesData.results) {
+            seriesRow.innerHTML = '';
+            seriesData.results.forEach(series => {
+                if (series.poster_path) {
+                    const imgUrl = `${TMDB_IMAGE_BASE}${series.poster_path}`;
+                    const titleClean = (series.name || '').replace(/'/g, "\\'");
+                    seriesRow.innerHTML += `
+                        <div class="movie-card" tabindex="0" onclick="abrirModalSerie('${series.id}', '${titleClean}', '${imgUrl}')">
+                            <img src="${imgUrl}" alt="${titleClean}">
+                        </div>
+                    `;
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Erro ao carregar séries:", e);
     }
 }
 
@@ -317,5 +285,9 @@ auth.onAuthStateChanged(user => {
     if (user) {
         carregarFilaContinueAVer(user.uid);
     }
-    carregarInicio();
+});
+
+// Carrega os filmes e séries ao iniciar a página
+document.addEventListener('DOMContentLoaded', () => {
+    carregarCatalogos();
 });

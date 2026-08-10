@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#050505">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>CineNet | Streaming</title>
+    <title>CineNet</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -16,42 +16,44 @@
 </head>
 <body>
 
-    <header class="navbar">
-        <div class="logo" onclick="carregarInicio()">CineNet</div>
-        <nav class="nav-links">
-            <a href="#" class="nav-item active" onclick="filtrarCategoria('inicio', this, event)">Início</a>
-            <a href="#" class="nav-item" onclick="filtrarCategoria('movie', this, event)">Filmes</a>
-            <a href="#" class="nav-item" onclick="filtrarCategoria('tv', this, event)">Séries</a>
-            <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this, event)">Animes</a>
-        </nav>
-    </header>
+    <nav class="navbar">
+        <div class="logo">CineNet</div>
+    </nav>
 
-    <main class="main-content">
-        <section class="section-container" id="continue-watching-section" style="display: none;">
-            <h2>Continuar a Ver</h2>
-            <div class="movie-row" id="continue-watching-row"></div>
-        </section>
+    <section class="section-container" id="continue-watching-section" style="display: none;">
+        <h2>Continuar a Ver</h2>
+        <div class="movie-row" id="continue-watching-row"></div>
+    </section>
 
-        <div id="categories-container"></div>
-    </main>
+    <section class="section-container">
+        <h2>Filmes Populares</h2>
+        <div class="movie-row" id="popular-movies-row">
+            </div>
+    </section>
 
-    <div id="episodes-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-card episodes-card">
-            <button class="close-modal-btn" onclick="fecharModalEpisodios()">✕</button>
-            <h2 id="modal-tv-title">Série</h2>
+    <section class="section-container">
+        <h2>Séries e Animes</h2>
+        <div class="movie-row" id="popular-series-row">
+            </div>
+    </section>
+
+    <div id="video-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
+        <button class="close-modal" onclick="fecharPlayer()" style="position: absolute; top: 15px; right: 20px; z-index: 10000; background: rgba(0,0,0,0.7); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: var(--radius-sm);">✕ Fechar</button>
+        <iframe id="mega-player-iframe" src="" style="width: 100%; height: 100%; border: none;" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    </div>
+
+    <div id="episodes-modal" class="modal-bg" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9000; align-items: center; justify-content: center; padding: 20px;">
+        <div class="episodes-dialog">
+            <button class="close-modal" onclick="fecharModalEpisodios()" style="position: absolute; top: 10px; right: 10px;">✕</button>
+            <h3 id="modal-tv-title">Série</h3>
             
-            <div class="form-group" style="margin-top: 15px;">
-                <label for="season-select">Escolha a Temporada:</label>
+            <div style="margin: 15px 0;">
+                <label for="season-select" style="font-size: 0.85rem; color: #aaa;">Escolha a Temporada:</label>
                 <select id="season-select" class="season-dropdown"></select>
             </div>
 
-            <div id="episodes-list" class="episodes-list-container"></div>
+            <div id="episodes-list" class="episodes-list"></div>
         </div>
-    </div>
-
-    <div id="video-container" class="video-modal" style="display: none;">
-        <button class="close-video-btn" onclick="fecharPlayer()">✕ Voltar</button>
-        <iframe id="mega-player-iframe" src="" allowfullscreen allow="autoplay; fullscreen" frameborder="0"></iframe>
     </div>
 
     <script src="script.js"></script>
