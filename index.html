@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#050505">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>CineNet | Streaming</title>
+    <title>CineNet | Filmes, Séries, Animes & Doramas</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -18,31 +16,36 @@
 
     <header class="navbar">
         <div class="nav-left">
-            <div class="logo">CineNet</div>
+            <div class="logo" onclick="carregarInicio()">CineNet</div>
             <nav class="nav-links">
-                <a href="#" class="active">Início</a>
-                <a href="#">Filmes</a>
-                <a href="#">Séries</a>
-                <a href="#">A minha Lista</a>
+                <a href="#" class="nav-item active" onclick="filtrarCategoria('inicio', this)">Início</a>
+                <a href="#" class="nav-item" onclick="filtrarCategoria('movie', this)">Filmes</a>
+                <a href="#" class="nav-item" onclick="filtrarCategoria('tv', this)">Séries</a>
+                <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this)">Animes</a>
+                <a href="#" class="nav-item" onclick="filtrarCategoria('comedy', this)">Comédia</a>
+                <a href="#" class="nav-item" onclick="filtrarCategoria('dorama', this)">Doramas</a>
             </nav>
         </div>
         <div class="nav-right">
             <div class="search-box">
-                <input type="text" placeholder="Pesquisar títulos...">
+                <input type="text" id="search-input" placeholder="Pesquisar títulos..." onkeyup="pesquisarTitulos(event)">
             </div>
-            <div class="user-avatar" title="Perfil">U</div>
+            <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Editar Perfil">
+                <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
+                <span id="user-display-name">Perfil</span>
+            </div>
         </div>
     </header>
 
-    <section class="hero-banner">
+    <section class="hero-banner" id="hero-banner">
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <span class="badge">Destaque</span>
-            <h1>Inception</h1>
-            <p>Um ladrão que rouba segredos corporativos através da utilização da tecnologia de partilha de sonhos recebe a tarefa inversa de plantar uma ideia na mente de um CEO.</p>
+            <span class="badge" id="hero-badge">Destaque</span>
+            <h1 id="hero-title">Carregando...</h1>
+            <p id="hero-desc">Selecione os melhores conteúdos de streaming em alta definição.</p>
             <div class="hero-buttons">
-                <button class="btn-primary" onclick="iniciarFilmeSimulado('inception', 'Inception', 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&q=80')">▶ Assistir</button>
-                <button class="btn-secondary">ℹ Mais Informações</button>
+                <button class="btn-primary" id="hero-play-btn">▶ Assistir Agora</button>
+                <button class="btn-secondary" id="hero-info-btn">ℹ Mais Informações</button>
             </div>
         </div>
     </section>
@@ -50,40 +53,51 @@
     <main class="main-content">
         <section class="section-container" id="continue-watching-section" style="display: none;">
             <h2 class="section-title">Continuar a Ver</h2>
-            <div class="movie-row" id="continue-watching-row">
-                </div>
+            <div class="movie-row" id="continue-watching-row"></div>
         </section>
 
-        <section class="section-container">
-            <h2 class="section-title">Filmes Populares</h2>
-            <div class="movie-row" id="popular-movies-row">
-                <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme1', 'Cyberpunk City', 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80')">
-                    <img src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80" alt="Cyberpunk City">
-                    <div class="card-info">
-                        <span class="card-title">Cyberpunk City</span>
-                    </div>
-                </div>
-                <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme2', 'Deep Space', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&q=80')">
-                    <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&q=80" alt="Deep Space">
-                    <div class="card-info">
-                        <span class="card-title">Deep Space</span>
-                    </div>
-                </div>
-                <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme3', 'Neon Wilderness', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&q=80')">
-                    <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&q=80" alt="Neon Wilderness">
-                    <div class="card-info">
-                        <span class="card-title">Neon Wilderness</span>
-                    </div>
-                </div>
+        <div id="categories-container">
             </div>
-        </section>
     </main>
+
+    <div id="profile-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <button class="close-modal-btn" onclick="fecharModalPerfil()">✕</button>
+            <h2>Editar Perfil</h2>
+            <form id="profile-form" onsubmit="guardarPerfil(event)">
+                <div class="form-group">
+                    <label>Nome de Exibição</label>
+                    <input type="text" id="edit-display-name" placeholder="O seu nome..." required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Escolha um Avatar Preset</label>
+                    <div class="avatar-presets">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" class="preset-avatar active" onclick="selecionarPresetAvatar(this)">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80" class="preset-avatar" onclick="selecionarPresetAvatar(this)">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80" class="preset-avatar" onclick="selecionarPresetAvatar(this)">
+                        <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80" class="preset-avatar" onclick="selecionarPresetAvatar(this)">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Ou URL do Avatar Personalizado</label>
+                    <input type="url" id="edit-avatar-url" placeholder="https://exemplo.com/imagem.jpg">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="fecharModalPerfil()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div id="video-container" class="video-modal" style="display: none;">
         <button class="close-modal" onclick="fecharPlayer()" title="Fechar Reprodutor">✕</button>
         <video id="meu-player-video" controls poster="https://via.placeholder.com/1280x720/050505/ffffff?text=Carregando+Video...">
             <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-            O seu navegador não suporta a reprodução de vídeo.
+            O seu navegador não suporta este vídeo.
         </video>
     </div>
 

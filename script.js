@@ -1,5 +1,5 @@
 // ==========================================
-// CONFIGURAÇÃO E INICIALIZAÇÃO FIREBASE
+// CONFIGURAÇÃO FIREBASE & TMDB API
 // ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
@@ -18,50 +18,269 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ==========================================
-// SUPORTE PARA COMANDOS DE SMART TV (D-PAD)
-// ==========================================
-document.addEventListener('keydown', (e) => {
-    // Permite acionar botões/cards com a tecla Enter do comando
-    if (e.key === 'Enter' && document.activeElement.classList.contains('movie-card')) {
-        document.activeElement.click();
-    }
-});
+const TMDB_API_KEY = "17c56e3825d7fbae6581866083d0d778";
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 
-// Navegação horizontal suave
-document.querySelectorAll('.movie-row').forEach(row => {
-    row.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            row.scrollBy({ left: 220, behavior: 'smooth' });
-        } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            row.scrollBy({ left: -220, behavior: 'smooth' });
-        }
-    });
-});
-
-// ==========================================
-// SISTEMA DE "CONTINUAR A VER"
-// ==========================================
-let ultimaGravacao = 0;
-const INTERVALO_GRAVACAO = 5; // Registo efetuado a cada 5 segundos
 let filmeAtualInfo = null;
+let ultimaGravacao = 0;
+const INTERVALO_GRAVACAO = 5;
+
+// ==========================================
+// TOAST NOTIFICATIONS
+// ==========================================
+function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// ==========================================
+// CARREGAMENTO DO CATÁLOGO (FILMES, SÉRIES, ANIMES, COMÉDIA, DORAMAS)
+// ==========================================
+
+const CATEGORIAS_CONFIG = [
+    { id: 'popular-movies', title: '🎬 Filmes Populares', endpoint: '/movie/popular' },
+    { id: 'popular-series', title: '📺 Séries Populares', endpoint: '/tv/popular' },
+    { id: 'animes', title: '⛩️ Animes em Destaque', endpoint: '/discover/tv?with_genres=16&with_original_language=ja' },
+    { id: 'comedy', title: '😂 Comédia', endpoint: '/discover/movie?with_genres=35' },
+    { id: 'doramas', title: '🌸 Doramas Asiáticos', endpoint: '/discover/tv?with_original_language=ko' }
+];
+
+async function fetchTMDB(endpoint) {
+    try {
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const url = `${TMDB_BASE_URL}${endpoint}${separator}api_key=${TMDB_API_KEY}&language=pt-PT`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Erro na requisição TMDb");
+        const data = await res.json();
+        return data.results || [];
+    } catch (e) {
+        console.warn("Falha ao carregar TMDb, usando catálogo de reserva:", e);
+        return getFallbackData(endpoint);
+    }
+}
 
 /**
- * Grava o progresso do utilizador no Firestore
+ * Catálogo de Contingência se a API externa estiver bloqueada
  */
+function getFallbackData(endpoint) {
+    return [
+        { id: 'f1', title: 'Inception', poster_path: null, backdrop_path: null, overview: 'Um ladrão que rouba segredos corporativos através do mundo dos sonhos.' },
+        { id: 'f2', title: 'Cyberpunk Neon', poster_path: null, backdrop_path: null, overview: 'Futuro distópico repleto de tecnologia.' },
+        { id: 'f3', title: 'Anime Academy', poster_path: null, backdrop_path: null, overview: 'Aventura épica de guerreiros místico-urbanos.' },
+        { id: 'f4', title: 'Comédia da Vida', poster_path: null, backdrop_path: null, overview: 'Risadas garantidas para toda a família.' },
+        { id: 'f5', title: 'Dorama de Verão', poster_path: null, backdrop_path: null, overview: 'Um romance apaixonante nas ruas de Seul.' }
+    ];
+}
+
+async function carregarInicio() {
+    const container = document.getElementById('categories-container');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Configurar Hero Banner com o primeiro filme
+    const topMovies = await fetchTMDB('/movie/popular');
+    if (topMovies.length > 0) {
+        configurarHeroBanner(topMovies[0]);
+    }
+
+    // Carregar todas as categorias na página inicial
+    for (const cat of CATEGORIAS_CONFIG) {
+        const items = await fetchTMDB(cat.endpoint);
+        renderizarCarrosselCategoria(cat.title, items);
+    }
+}
+
+function configurarHeroBanner(item) {
+    const title = item.title || item.name || 'Destaque CineNet';
+    const desc = item.overview || 'Assista agora em alta definição no CineNet.';
+    const backdrop = item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&q=80';
+    const poster = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : backdrop;
+
+    document.getElementById('hero-banner').style.backgroundImage = `url('${backdrop}')`;
+    document.getElementById('hero-title').innerText = title;
+    document.getElementById('hero-desc').innerText = desc.length > 180 ? desc.substring(0, 180) + '...' : desc;
+
+    const playBtn = document.getElementById('hero-play-btn');
+    playBtn.onclick = () => iniciarFilmeSimulado(item.id, title, poster);
+}
+
+function renderizarCarrosselCategoria(tituloSecao, items) {
+    const container = document.getElementById('categories-container');
+    const section = document.createElement('section');
+    section.className = 'section-container';
+
+    let cardsHTML = `<h2 class="section-title">${tituloSecao}</h2><div class="movie-row">`;
+    
+    items.forEach(item => {
+        const title = (item.title || item.name || 'Título').replace(/'/g, "\\'");
+        const imgUrl = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80';
+
+        cardsHTML += `
+            <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('${item.id}', '${title}', '${imgUrl}')">
+                <img src="${imgUrl}" alt="${title}">
+                <div class="card-info">
+                    <span class="card-title">${title}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    cardsHTML += `</div>`;
+    section.innerHTML = cardsHTML;
+    container.appendChild(section);
+}
+
+/**
+ * Filtro da Navbar (Filmes, Séries, Animes, Comédia, Doramas)
+ */
+async function filtrarCategoria(categoria, element) {
+    // Atualizar classe active na barra de navegação
+    document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    const container = document.getElementById('categories-container');
+    container.innerHTML = '<p style="padding: 40px; color: #a3a3a3;">Carregando catálogo...</p>';
+
+    if (categoria === 'inicio') {
+        carregarInicio();
+        return;
+    }
+
+    let endpoint = '';
+    let titulo = '';
+
+    switch(categoria) {
+        case 'movie':
+            endpoint = '/movie/popular';
+            titulo = '🎬 Filmes';
+            break;
+        case 'tv':
+            endpoint = '/tv/popular';
+            titulo = '📺 Séries';
+            break;
+        case 'anime':
+            endpoint = '/discover/tv?with_genres=16&with_original_language=ja';
+            titulo = '⛩️ Animes';
+            break;
+        case 'comedy':
+            endpoint = '/discover/movie?with_genres=35';
+            titulo = '😂 Comédia';
+            break;
+        case 'dorama':
+            endpoint = '/discover/tv?with_original_language=ko';
+            titulo = '🌸 Doramas';
+            break;
+    }
+
+    const items = await fetchTMDB(endpoint);
+    container.innerHTML = '';
+    if (items.length > 0) {
+        configurarHeroBanner(items[0]);
+    }
+    renderizarCarrosselCategoria(titulo, items);
+}
+
+async function pesquisarTitulos(e) {
+    const query = e.target.value.trim();
+    if (query.length < 3) {
+        if (e.key === 'Enter') carregarInicio();
+        return;
+    }
+
+    const items = await fetchTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
+    const container = document.getElementById('categories-container');
+    container.innerHTML = '';
+    renderizarCarrosselCategoria(`Resultados para: "${query}"`, items);
+}
+
+// ==========================================
+// SISTEMA DE EDITAR PERFIL (MODAL & FIREBASE)
+// ==========================================
+
+function abrirModalPerfil() {
+    const user = auth.currentUser;
+    const modal = document.getElementById('profile-modal');
+    
+    if (user) {
+        document.getElementById('edit-display-name').value = user.displayName || 'Utilizador CineNet';
+        document.getElementById('edit-avatar-url').value = user.photoURL || '';
+    }
+    modal.style.display = 'flex';
+}
+
+function fecharModalPerfil() {
+    document.getElementById('profile-modal').style.display = 'none';
+}
+
+function selecionarPresetAvatar(imgElement) {
+    document.querySelectorAll('.preset-avatar').forEach(img => img.classList.remove('active'));
+    imgElement.classList.add('active');
+    document.getElementById('edit-avatar-url').value = imgElement.src;
+}
+
+async function guardarPerfil(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) {
+        showToast("É necessário estar ligado para guardar o perfil.");
+        return;
+    }
+
+    const novoNome = document.getElementById('edit-display-name').value.trim();
+    const novoAvatar = document.getElementById('edit-avatar-url').value.trim() || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+
+    try {
+        // 1. Atualiza Perfil do Firebase Auth
+        await user.updateProfile({
+            displayName: novoNome,
+            photoURL: novoAvatar
+        });
+
+        // 2. Atualiza Coleção Firestore
+        await db.collection('users').doc(user.uid).set({
+            displayName: novoNome,
+            photoURL: novoAvatar,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // 3. Atualiza UI na Navbar
+        atualizarUIPerfil(novoNome, novoAvatar);
+        fecharModalPerfil();
+        showToast("Perfil atualizado com sucesso!");
+    } catch (error) {
+        console.error("Erro ao guardar perfil:", error);
+        showToast("Erro ao guardar perfil.");
+    }
+}
+
+function atualizarUIPerfil(nome, photoUrl) {
+    const avatarImg = document.getElementById('user-avatar-img');
+    const nameSpan = document.getElementById('user-display-name');
+    
+    if (avatarImg) avatarImg.src = photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+    if (nameSpan) nameSpan.innerText = nome || "Perfil";
+}
+
+// ==========================================
+// CONTINUAR A VER (FIRESTORE)
+// ==========================================
+
 async function guardarProgressoFirebase(userId, movieData, currentTime, duration) {
     if (!userId || !movieData || isNaN(duration) || duration === 0) return;
-    
-    // Evita chamadas repetidas à base de dados (Throttling)
     if (currentTime - ultimaGravacao < INTERVALO_GRAVACAO && currentTime !== duration) return;
 
     try {
-        const movieRef = db.collection('users').doc(userId).collection('continueWatching').doc(movieData.id);
+        const movieRef = db.collection('users').doc(userId).collection('continueWatching').doc(String(movieData.id));
         const percentagem = (currentTime / duration) * 100;
         
-        // Se visualizou mais de 95%, remove da lista "Continuar a Ver"
         if (percentagem > 95) {
             await movieRef.delete();
             return;
@@ -79,13 +298,10 @@ async function guardarProgressoFirebase(userId, movieData, currentTime, duration
 
         ultimaGravacao = currentTime;
     } catch (error) {
-        console.error("Erro ao guardar progresso no Firebase:", error);
+        console.error("Erro ao guardar progresso:", error);
     }
 }
 
-/**
- * Carrega e exibe os filmes guardados na secção "Continuar a Ver"
- */
 async function carregarFilaContinueAVer(userId) {
     const section = document.getElementById('continue-watching-section');
     const container = document.getElementById('continue-watching-row');
@@ -105,9 +321,8 @@ async function carregarFilaContinueAVer(userId) {
         }
 
         section.style.display = 'block';
-        
-        // Renderização otimizada em bloco único
         let cardsHTML = '';
+
         snapshot.forEach(doc => {
             const movie = doc.data();
             const titleEscaped = (movie.title || '').replace(/'/g, "\\'");
@@ -125,18 +340,15 @@ async function carregarFilaContinueAVer(userId) {
         });
         container.innerHTML = cardsHTML;
     } catch (error) {
-        console.error("Erro ao carregar lista 'Continuar a Ver':", error);
+        console.error("Erro ao carregar 'Continuar a Ver':", error);
     }
 }
 
 // ==========================================
-// INTEGRACÃO COM O PLAYER DE VÍDEO
+// REPRODUTOR DE VÍDEO
 // ==========================================
 
-/**
- * Inicia a reprodução e retoma exatamente onde o utilizador parou
- */
-async function iniciarFilmeSimulado(movieId, title = 'Filme em Destaque', coverImage = '') {
+async function iniciarFilmeSimulado(movieId, title = 'Título', coverImage = '') {
     const videoContainer = document.getElementById('video-container');
     const videoPlayer = document.getElementById('meu-player-video');
     const currentUser = auth.currentUser;
@@ -148,27 +360,24 @@ async function iniciarFilmeSimulado(movieId, title = 'Filme em Destaque', coverI
     };
 
     videoContainer.style.display = 'flex';
-
     let tempoSalvo = 0;
 
-    // 1. Procura a posição salva no Firestore
     if (currentUser) {
         try {
             const docSnap = await db.collection('users')
                                     .doc(currentUser.uid)
                                     .collection('continueWatching')
-                                    .doc(movieId)
+                                    .doc(String(movieId))
                                     .get();
 
             if (docSnap.exists && docSnap.data().currentTime > 0) {
                 tempoSalvo = docSnap.data().currentTime;
             }
         } catch (e) {
-            console.warn("Erro ao pesquisar tempo salvo:", e);
+            console.warn("Sem histórico anterior:", e);
         }
     }
 
-    // 2. Transição segura de tempo após carregamento dos metadados
     const aplicarTempoSalvo = () => {
         if (tempoSalvo > 0 && tempoSalvo < videoPlayer.duration) {
             videoPlayer.currentTime = tempoSalvo;
@@ -184,9 +393,7 @@ async function iniciarFilmeSimulado(movieId, title = 'Filme em Destaque', coverI
     }
 }
 
-// Monitoriza o vídeo e grava o progresso periodicamente
 const videoElement = document.getElementById('meu-player-video');
-
 if (videoElement) {
     videoElement.addEventListener('timeupdate', function() {
         const currentUser = auth.currentUser;
@@ -195,49 +402,43 @@ if (videoElement) {
         }
     });
 
-    // Grava imediatamente ao pausar
     videoElement.addEventListener('pause', function() {
         const currentUser = auth.currentUser;
         if (currentUser && filmeAtualInfo) {
-            ultimaGravacao = 0; // Força gravação instantânea
+            ultimaGravacao = 0;
             guardarProgressoFirebase(currentUser.uid, filmeAtualInfo, this.currentTime, this.duration);
         }
     });
 }
 
-/**
- * Fecha o player e atualiza a interface inicial
- */
 function fecharPlayer() {
     const videoContainer = document.getElementById('video-container');
     const videoPlayer = document.getElementById('meu-player-video');
-    
-    if (videoPlayer) {
-        videoPlayer.pause();
-    }
-    
-    if (videoContainer) {
-        videoContainer.style.display = 'none';
-    }
+    if (videoPlayer) videoPlayer.pause();
+    if (videoContainer) videoContainer.style.display = 'none';
 
-    // Recarrega a fila "Continuar a Ver"
     if (auth.currentUser) {
         carregarFilaContinueAVer(auth.currentUser.uid);
     }
 }
 
 // ==========================================
-// INICIALIZAÇÃO DE AUTENTICAÇÃO
+// INICIALIZAÇÃO E AUTENTICAÇÃO
 // ==========================================
+
 auth.onAuthStateChanged(async (user) => {
     if (user) {
+        atualizarUIPerfil(user.displayName, user.photoURL);
         carregarFilaContinueAVer(user.uid);
     } else {
-        // Fallback de login anónimo para testes de funcionamento imediatos
         try {
-            await auth.signInAnonymously();
+            const userCred = await auth.signInAnonymously();
+            if (userCred.user) {
+                atualizarUIPerfil("Visitante", "");
+            }
         } catch (error) {
-            console.error("Erro no login anónimo:", error);
+            console.error("Erro na sessão:", error);
         }
     }
+    carregarInicio();
 });
