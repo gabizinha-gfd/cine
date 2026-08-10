@@ -1,3 +1,6 @@
+// ==========================================
+// CONFIGURAÇÃO FIREBASE & TMDB API
+// ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
     authDomain: "cinenet-ifpb.firebaseapp.com",
@@ -5,10 +8,10 @@ const firebaseConfig = {
     projectId: "cinenet-ifpb",
     storageBucket: "cinenet-ifpb.firebasestorage.app",
     messagingSenderId: "1098247355110",
-    appId: "1:1098247355110:web:c9f867826f26b0ef171927",
-    measurementId: "G-73VPBQSWKM"
+    appId: "1:1098247355110:web:c9f867826f26b0ef171927"
 };
 
+// Inicialização Segura do Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -24,7 +27,11 @@ let ultimaGravacao = 0;
 const INTERVALO_GRAVACAO = 5;
 let minhaListaIDs = new Set();
 let debounceSearchTimer;
+let isLoginMode = true;
 
+// ==========================================
+// FUNÇÕES ÚTEIS (TOAST)
+// ==========================================
 function showToast(msg) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -32,15 +39,14 @@ function showToast(msg) {
     toast.className = 'toast';
     toast.innerText = msg;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), 3500);
 }
 
 // ==========================================
 // SISTEMA DE AUTENTICAÇÃO (LOGIN / REGISTO)
 // ==========================================
-let isLoginMode = true;
-
-function toggleAuthMode() {
+function toggleAuthMode(event) {
+    if (event) event.preventDefault();
     isLoginMode = !isLoginMode;
     document.getElementById('auth-title').innerText = isLoginMode ? 'Iniciar Sessão' : 'Criar Conta';
     document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Registar';
@@ -54,65 +60,62 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value.trim();
     const errorEl = document.getElementById('auth-error');
-    errorEl.innerText = '';
+    errorEl.innerText = 'A processar...';
 
     try {
         if (isLoginMode) {
             await auth.signInWithEmailAndPassword(email, password);
         } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
-            // Definir perfil padrão
             await userCred.user.updateProfile({
                 displayName: "Novo Utilizador",
                 photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80"
             });
         }
+        errorEl.innerText = ''; // Limpar em caso de sucesso
     } catch (error) {
         if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             errorEl.innerText = 'E-mail ou palavra-passe incorretos.';
         } else if (error.code === 'auth/email-already-in-use') {
-            errorEl.innerText = 'Este e-mail já se encontra registado.';
+            errorEl.innerText = 'Este e-mail já está registado.';
         } else if (error.code === 'auth/weak-password') {
-            errorEl.innerText = 'A palavra-passe deve ter pelo menos 6 caracteres.';
+            errorEl.innerText = 'A palavra-passe precisa de pelo menos 6 caracteres.';
         } else {
-            errorEl.innerText = 'Ocorreu um erro. Tente novamente.';
+            errorEl.innerText = 'Ocorreu um erro. Verifique a ligação.';
         }
     }
 });
 
 function fazerLogout() {
-    auth.signOut();
-    fecharModalPerfil();
+    auth.signOut().then(() => {
+        fecharModalPerfil();
+    });
 }
 
-// Observador de Estado da Sessão
+// Estado da Sessão
 auth.onAuthStateChanged(async (user) => {
     if (user) {
-        // Ocultar Login, Mostrar App
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-screen').style.display = 'block';
 
         atualizarUIPerfil(user.displayName, user.photoURL);
         await carregarWatchlistIDs(user.uid);
         carregarFilaContinueAVer(user.uid);
-        carregarInicio(); // Carrega os filmes
+        carregarInicio();
     } else {
-        // Mostrar Login, Ocultar App
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
         
-        // Limpar dados em memória
+        // Limpar dados para não cruzar informações entre contas
         minhaListaIDs.clear();
-        document.getElementById('continue-watching-section').style.display = 'none';
-        
-        // Limpar formulário de login
         document.getElementById('auth-email').value = '';
         document.getElementById('auth-password').value = '';
+        document.getElementById('continue-watching-section').style.display = 'none';
     }
 });
 
 // ==========================================
-// INTEGRAÇÃO COM TMDB API E LÓGICA DE UI 
+// NAVEGAÇÃO E TMDb API (CATÁLOGOS)
 // ==========================================
 const CATEGORIAS_CONFIG = [
     { id: 'popular-movies', title: '🎬 Filmes Populares', endpoint: '/movie/popular' },
@@ -127,29 +130,26 @@ async function fetchTMDB(endpoint) {
         const separator = endpoint.includes('?') ? '&' : '?';
         const url = `${TMDB_BASE_URL}${endpoint}${separator}api_key=${TMDB_API_KEY}&language=pt-PT`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error("Erro TMDb");
+        if (!res.ok) throw new Error("Erro de rede TMDb");
         const data = await res.json();
         return data.results || [];
     } catch (e) {
-        return getFallbackData(); // O seu catálogo de reserva (ver no código anterior)
+        console.warn("API Falhou. A carregar Dados de Reserva.");
+        return [
+            { id: 1, title: 'Inception', poster_path: null, overview: 'Ação e Ficção Científica.' },
+            { id: 2, title: 'Neon City', poster_path: null, overview: 'Futuro Distópico.' }
+        ];
     }
-}
-
-function getFallbackData() {
-    return [
-        { id: 'f1', title: 'Inception', coverImage: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&q=80', overview: 'Ação e Ficção Científica.' },
-        { id: 'f2', title: 'Cyberpunk', coverImage: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80', overview: 'Futuro Neon.' }
-    ];
 }
 
 async function carregarInicio() {
     document.getElementById('search-input').value = '';
     document.getElementById('search-results-section').style.display = 'none';
     document.getElementById('watchlist-section').style.display = 'none';
-
+    
     const container = document.getElementById('categories-container');
-    if (!container) return;
-    container.innerHTML = '';
+    container.style.display = 'block';
+    container.innerHTML = ''; // Limpar para recarregar
 
     const topMovies = await fetchTMDB('/movie/popular');
     if (topMovies.length > 0) configurarHeroBanner(topMovies[0]);
@@ -161,8 +161,8 @@ async function carregarInicio() {
 }
 
 function configurarHeroBanner(item) {
-    const title = item.title || item.name || 'Destaque CineNet';
-    const desc = item.overview || 'Assista em alta definição.';
+    const title = (item.title || item.name || 'Destaque CineNet').replace(/'/g, "\\'");
+    const desc = item.overview || 'Assista em alta definição no CineNet.';
     const backdrop = item.backdrop_path ? `https://image.tmdb.org/t/p/original${item.backdrop_path}` : 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&q=80';
     const poster = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : backdrop;
 
@@ -184,7 +184,9 @@ function renderizarCarrosselCategoria(tituloSecao, items) {
     section.className = 'section-container';
 
     let cardsHTML = `<h2 class="section-title">${tituloSecao}</h2><div class="movie-row">`;
-    items.forEach(item => cardsHTML += criarCardHTML(item));
+    items.forEach(item => {
+        if (item.poster_path || item.backdrop_path) cardsHTML += criarCardHTML(item);
+    });
     cardsHTML += `</div>`;
     
     section.innerHTML = cardsHTML;
@@ -194,7 +196,7 @@ function renderizarCarrosselCategoria(tituloSecao, items) {
 function criarCardHTML(item) {
     const idStr = String(item.id);
     const title = (item.title || item.name || 'Título').replace(/'/g, "\\'");
-    const imgUrl = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : (item.coverImage || 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80');
+    const imgUrl = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80';
     const isSaved = minhaListaIDs.has(idStr);
 
     return `
@@ -205,11 +207,339 @@ function criarCardHTML(item) {
                 ${isSaved ? '✓' : '+'}
             </button>
             <div onclick="iniciarFilmeSimulado('${idStr}', '${title}', '${imgUrl}')">
-                <img src="${imgUrl}" alt="${title}">
+                <img src="${imgUrl}" alt="${title}" loading="lazy">
                 <div class="card-info">
                     <span class="card-title">${title}</span>
                 </div>
             </div>
         </div>
     `;
+}
+
+// ==========================================
+// PESQUISA EM TEMPO REAL & FILTROS
+// ==========================================
+async function pesquisarTitulos(e) {
+    const query = e.target.value.trim();
+    const searchSection = document.getElementById('search-results-section');
+    const searchRow = document.getElementById('search-results-row');
+    const searchTitle = document.getElementById('search-results-title');
+    const categoriesContainer = document.getElementById('categories-container');
+
+    clearTimeout(debounceSearchTimer);
+
+    // Se o texto for pequeno, volta ao ecrã inicial
+    if (query.length < 2) {
+        searchSection.style.display = 'none';
+        categoriesContainer.style.display = 'block';
+        return;
+    }
+
+    debounceSearchTimer = setTimeout(async () => {
+        searchTitle.innerText = `Resultados para: "${query}"`;
+        searchRow.innerHTML = '<p style="color: var(--text-muted); padding: 10px;">A pesquisar...</p>';
+        searchSection.style.display = 'block';
+        categoriesContainer.style.display = 'none';
+
+        const results = await fetchTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
+        
+        if (results.length === 0) {
+            searchRow.innerHTML = '<p style="color: var(--text-muted); padding: 10px;">Nenhum resultado encontrado.</p>';
+            return;
+        }
+
+        let cardsHTML = '';
+        results.forEach(item => {
+            if (item.poster_path) cardsHTML += criarCardHTML(item);
+        });
+        searchRow.innerHTML = cardsHTML;
+    }, 400); // 400ms delay para evitar muitas chamadas à API
+}
+
+async function filtrarCategoria(categoria, element, event) {
+    if(event) event.preventDefault();
+    
+    // Atualizar UI Navbar
+    document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    // Esconder outras secções
+    document.getElementById('search-results-section').style.display = 'none';
+    document.getElementById('watchlist-section').style.display = 'none';
+    
+    const container = document.getElementById('categories-container');
+    container.style.display = 'block';
+
+    if (categoria === 'inicio') {
+        carregarInicio();
+        return;
+    }
+
+    container.innerHTML = '<p style="padding: 40px; color: #a3a3a3; text-align: center;">A carregar catálogo...</p>';
+
+    let endpoint = '', titulo = '';
+    switch(categoria) {
+        case 'movie': endpoint = '/movie/popular'; titulo = '🎬 Filmes'; break;
+        case 'tv': endpoint = '/tv/popular'; titulo = '📺 Séries'; break;
+        case 'anime': endpoint = '/discover/tv?with_genres=16&with_original_language=ja'; titulo = '⛩️ Animes'; break;
+        case 'comedy': endpoint = '/discover/movie?with_genres=35'; titulo = '😂 Comédia'; break;
+        case 'dorama': endpoint = '/discover/tv?with_original_language=ko'; titulo = '🌸 Doramas'; break;
+    }
+
+    const items = await fetchTMDB(endpoint);
+    container.innerHTML = '';
+    if (items.length > 0) configurarHeroBanner(items[0]);
+    renderizarCarrosselCategoria(titulo, items);
+}
+
+// ==========================================
+// A MINHA LISTA (WATCHLIST)
+// ==========================================
+async function toggleMinhaLista(movieData) {
+    const user = auth.currentUser;
+    if (!user) return showToast("Sessão expirou. Faça login.");
+
+    const movieIdStr = String(movieData.id);
+    const itemRef = db.collection('users').doc(user.uid).collection('watchlist').doc(movieIdStr);
+
+    try {
+        if (minhaListaIDs.has(movieIdStr)) {
+            await itemRef.delete();
+            minhaListaIDs.delete(movieIdStr);
+            showToast("Removido da Lista");
+        } else {
+            await itemRef.set({
+                id: movieIdStr,
+                title: movieData.title,
+                coverImage: movieData.coverImage,
+                addedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            minhaListaIDs.add(movieIdStr);
+            showToast("Adicionado à Lista!");
+        }
+
+        atualizarBotoesWatchlist();
+        
+        // Se a secção da lista estiver visível, atualiza-a em tempo real
+        if (document.getElementById('watchlist-section').style.display === 'block') {
+            carregarSecaoMinhaLista(user.uid);
+        }
+    } catch (e) {
+        showToast("Erro ao sincronizar com a nuvem.");
+    }
+}
+
+async function carregarWatchlistIDs(userId) {
+    try {
+        const snapshot = await db.collection('users').doc(userId).collection('watchlist').get();
+        minhaListaIDs.clear();
+        snapshot.forEach(doc => minhaListaIDs.add(doc.id));
+        atualizarBotoesWatchlist();
+    } catch (e) {
+        console.error("Erro a ler watchlist.");
+    }
+}
+
+function atualizarBotoesWatchlist() {
+    document.querySelectorAll('.card-watchlist-btn').forEach(btn => {
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        const match = onclickAttr.match(/id:\s*'([^']+)'/);
+        if (match && match[1]) {
+            const isSaved = minhaListaIDs.has(match[1]);
+            btn.className = `card-watchlist-btn ${isSaved ? 'active' : ''}`;
+            btn.innerText = isSaved ? '✓' : '+';
+        }
+    });
+}
+
+async function mostrarMinhaLista(element, event) {
+    if(event) event.preventDefault();
+    
+    document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
+    if (element) element.classList.add('active');
+
+    document.getElementById('search-results-section').style.display = 'none';
+    document.getElementById('categories-container').style.display = 'none';
+
+    const user = auth.currentUser;
+    if (user) await carregarSecaoMinhaLista(user.uid);
+}
+
+async function carregarSecaoMinhaLista(userId) {
+    const section = document.getElementById('watchlist-section');
+    const row = document.getElementById('watchlist-row');
+    section.style.display = 'block';
+    row.innerHTML = '<p style="color: #a3a3a3;">A carregar os seus filmes...</p>';
+
+    try {
+        const snapshot = await db.collection('users').doc(userId).collection('watchlist').orderBy('addedAt', 'desc').get();
+        if (snapshot.empty) {
+            row.innerHTML = '<p style="color: #a3a3a3;">A sua lista está vazia.</p>';
+            return;
+        }
+
+        let cardsHTML = '';
+        snapshot.forEach(doc => cardsHTML += criarCardHTML(doc.data()));
+        row.innerHTML = cardsHTML;
+    } catch (e) {
+        row.innerHTML = '<p style="color: #E50914;">Falha ao carregar a lista.</p>';
+    }
+}
+
+// ==========================================
+// MODAL DE PERFIL
+// ==========================================
+function abrirModalPerfil() {
+    const user = auth.currentUser;
+    if (user) {
+        document.getElementById('edit-display-name').value = user.displayName || 'Utilizador';
+        document.getElementById('edit-avatar-url').value = user.photoURL || '';
+    }
+    document.getElementById('profile-modal').style.display = 'flex';
+}
+
+function fecharModalPerfil() {
+    document.getElementById('profile-modal').style.display = 'none';
+}
+
+function selecionarPresetAvatar(imgElement) {
+    document.querySelectorAll('.preset-avatar').forEach(img => img.classList.remove('active'));
+    imgElement.classList.add('active');
+    document.getElementById('edit-avatar-url').value = imgElement.src;
+}
+
+async function guardarPerfil(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const novoNome = document.getElementById('edit-display-name').value.trim();
+    const novoAvatar = document.getElementById('edit-avatar-url').value.trim() || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+
+    try {
+        await user.updateProfile({ displayName: novoNome, photoURL: novoAvatar });
+        await db.collection('users').doc(user.uid).set({
+            displayName: novoNome, photoURL: novoAvatar, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        atualizarUIPerfil(novoNome, novoAvatar);
+        fecharModalPerfil();
+        showToast("Perfil atualizado com sucesso!");
+    } catch (error) {
+        showToast("Falha ao atualizar perfil.");
+    }
+}
+
+function atualizarUIPerfil(nome, photoUrl) {
+    const avatar = document.getElementById('user-avatar-img');
+    const nameSpan = document.getElementById('user-display-name');
+    if (avatar) avatar.src = photoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+    if (nameSpan) nameSpan.innerText = nome || "Perfil";
+}
+
+// ==========================================
+// PLAYER DE VÍDEO & CONTINUAR A VER
+// ==========================================
+async function guardarProgressoFirebase(userId, movieData, currentTime, duration) {
+    if (!userId || !movieData || isNaN(duration) || duration === 0) return;
+    if (currentTime - ultimaGravacao < INTERVALO_GRAVACAO && currentTime !== duration) return;
+
+    try {
+        const movieRef = db.collection('users').doc(userId).collection('continueWatching').doc(String(movieData.id));
+        const progress = (currentTime / duration) * 100;
+        
+        if (progress > 95) {
+            await movieRef.delete();
+            return;
+        }
+
+        await movieRef.set({
+            movieId: String(movieData.id), title: movieData.title, coverImage: movieData.coverImage,
+            currentTime: currentTime, duration: duration, progress: progress, lastWatched: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        ultimaGravacao = currentTime;
+    } catch (e) { /* silent fail */ }
+}
+
+async function carregarFilaContinueAVer(userId) {
+    const section = document.getElementById('continue-watching-section');
+    const row = document.getElementById('continue-watching-row');
+    if (!section || !row) return;
+
+    try {
+        const snapshot = await db.collection('users').doc(userId).collection('continueWatching').orderBy('lastWatched', 'desc').limit(10).get();
+        if (snapshot.empty) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+        let cardsHTML = '';
+        snapshot.forEach(doc => {
+            const movie = doc.data();
+            const titleEscaped = (movie.title || '').replace(/'/g, "\\'");
+            cardsHTML += `
+                <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('${movie.movieId}', '${titleEscaped}', '${movie.coverImage}')">
+                    <img src="${movie.coverImage}" alt="${movie.title}">
+                    <div class="card-info"><span class="card-title">${movie.title}</span></div>
+                    <div class="progress-bar-container"><div class="progress-bar" style="width: ${Math.min(movie.progress, 100)}%;"></div></div>
+                </div>
+            `;
+        });
+        row.innerHTML = cardsHTML;
+    } catch (e) {
+        section.style.display = 'none';
+    }
+}
+
+async function iniciarFilmeSimulado(movieId, title = 'Filme', coverImage = '') {
+    const container = document.getElementById('video-container');
+    const player = document.getElementById('meu-player-video');
+    const user = auth.currentUser;
+
+    filmeAtualInfo = { id: String(movieId), title: title, coverImage: coverImage };
+    container.style.display = 'flex';
+    let tempoSalvo = 0;
+
+    if (user) {
+        try {
+            const doc = await db.collection('users').doc(user.uid).collection('continueWatching').doc(String(movieId)).get();
+            if (doc.exists && doc.data().currentTime > 0) tempoSalvo = doc.data().currentTime;
+        } catch (e) { /* ignore */ }
+    }
+
+    const setTime = () => {
+        if (tempoSalvo > 0 && tempoSalvo < player.duration) player.currentTime = tempoSalvo;
+        player.play().catch(() => console.log("Bloqueio de auto-play."));
+        player.removeEventListener('loadedmetadata', setTime);
+    };
+
+    if (player.readyState >= 1) setTime();
+    else player.addEventListener('loadedmetadata', setTime);
+}
+
+const videoEl = document.getElementById('meu-player-video');
+if (videoEl) {
+    videoEl.addEventListener('timeupdate', function() {
+        if (auth.currentUser && filmeAtualInfo) guardarProgressoFirebase(auth.currentUser.uid, filmeAtualInfo, this.currentTime, this.duration);
+    });
+    videoEl.addEventListener('pause', function() {
+        if (auth.currentUser && filmeAtualInfo) {
+            ultimaGravacao = 0;
+            guardarProgressoFirebase(auth.currentUser.uid, filmeAtualInfo, this.currentTime, this.duration);
+        }
+    });
+}
+
+function fecharPlayer() {
+    const container = document.getElementById('video-container');
+    const player = document.getElementById('meu-player-video');
+    
+    // Forçar pausa e remoção do SRC para garantir que a reprodução/áudio para imediatamente
+    if (player) {
+        player.pause();
+    }
+    if (container) container.style.display = 'none';
+
+    if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
 }

@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#050505">
     <title>CineNet</title>
     
@@ -20,39 +20,39 @@
             <p id="auth-error" class="auth-error-msg"></p>
             <form id="auth-form">
                 <div class="form-group">
-                    <input type="email" id="auth-email" placeholder="E-mail" required>
+                    <input type="email" id="auth-email" placeholder="E-mail" autocomplete="email" required>
                 </div>
                 <div class="form-group">
-                    <input type="password" id="auth-password" placeholder="Palavra-passe" required>
+                    <input type="password" id="auth-password" placeholder="Palavra-passe" autocomplete="current-password" required>
                 </div>
                 <button type="submit" class="btn-primary auth-submit-btn" id="auth-submit-btn">Entrar</button>
             </form>
             <div class="auth-switch">
                 <span id="auth-switch-text">Novo no CineNet?</span>
-                <a href="#" id="auth-switch-link" onclick="toggleAuthMode()">Registe-se agora</a>
+                <a href="#" id="auth-switch-link" onclick="toggleAuthMode(event)">Registe-se agora</a>
             </div>
         </div>
     </div>
 
     <div id="app-screen" style="display: none;">
+        
         <header class="navbar">
             <div class="nav-left">
                 <div class="logo" onclick="carregarInicio()">CineNet</div>
                 <nav class="nav-links">
-                    <a href="#" class="nav-item active" onclick="filtrarCategoria('inicio', this)">Início</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('movie', this)">Filmes</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('tv', this)">Séries</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this)">Animes</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('comedy', this)">Comédia</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('dorama', this)">Doramas</a>
-                    <a href="#" class="nav-item" onclick="mostrarMinhaLista(this)">A minha Lista</a>
+                    <a href="#" class="nav-item active" onclick="filtrarCategoria('inicio', this, event)">Início</a>
+                    <a href="#" class="nav-item" onclick="filtrarCategoria('movie', this, event)">Filmes</a>
+                    <a href="#" class="nav-item" onclick="filtrarCategoria('tv', this, event)">Séries</a>
+                    <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this, event)">Animes</a>
+                    <a href="#" class="nav-item" onclick="filtrarCategoria('comedy', this, event)">Comédia</a>
+                    <a href="#" class="nav-item" onclick="mostrarMinhaLista(this, event)">A minha Lista</a>
                 </nav>
             </div>
             <div class="nav-right">
                 <div class="search-box">
                     <input type="text" id="search-input" placeholder="Pesquisar títulos..." oninput="pesquisarTitulos(event)">
                 </div>
-                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Perfil">
+                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Configurações de Perfil">
                     <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
                     <span id="user-display-name">Perfil</span>
                 </div>
@@ -64,7 +64,7 @@
             <div class="hero-content">
                 <span class="badge" id="hero-badge">Destaque</span>
                 <h1 id="hero-title">A carregar...</h1>
-                <p id="hero-desc">Selecione os melhores conteúdos de streaming em alta definição.</p>
+                <p id="hero-desc">Descubra os melhores filmes e séries em alta definição.</p>
                 <div class="hero-buttons">
                     <button class="btn-primary" id="hero-play-btn">▶ Assistir Agora</button>
                     <button class="btn-secondary" id="hero-watchlist-btn">+ A minha Lista</button>
@@ -78,14 +78,14 @@
                 <div class="movie-row" id="search-results-row"></div>
             </section>
 
-            <section class="section-container" id="continue-watching-section" style="display: none;">
-                <h2 class="section-title">Continuar a Ver</h2>
-                <div class="movie-row" id="continue-watching-row"></div>
-            </section>
-
             <section class="section-container" id="watchlist-section" style="display: none;">
                 <h2 class="section-title">📌 A minha Lista</h2>
                 <div class="movie-row" id="watchlist-row"></div>
+            </section>
+
+            <section class="section-container" id="continue-watching-section" style="display: none;">
+                <h2 class="section-title">Continuar a Ver</h2>
+                <div class="movie-row" id="continue-watching-row"></div>
             </section>
 
             <div id="categories-container"></div>
@@ -103,7 +103,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>Avatar Rápido</label>
+                    <label>Avatar Predefinido</label>
                     <div class="avatar-presets">
                         <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" class="preset-avatar active" onclick="selecionarPresetAvatar(this)">
                         <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80" class="preset-avatar" onclick="selecionarPresetAvatar(this)">
@@ -113,7 +113,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label>URL da Imagem de Perfil (Opcional)</label>
+                    <label>URL de Imagem Personalizada</label>
                     <input type="url" id="edit-avatar-url" placeholder="https://exemplo.com/imagem.jpg">
                 </div>
 
@@ -121,20 +121,21 @@
                     <button type="button" class="btn-secondary" onclick="fecharModalPerfil()">Cancelar</button>
                     <button type="submit" class="btn-primary">Guardar</button>
                 </div>
-                <hr style="border: 0; height: 1px; background: var(--glass-border); margin: 20px 0;">
-                <button type="button" class="btn-secondary" style="width: 100%; border-color: var(--primary); color: var(--primary);" onclick="fazerLogout()">Terminar Sessão</button>
+                <hr class="divider">
+                <button type="button" class="btn-logout" onclick="fazerLogout()">Terminar Sessão</button>
             </form>
         </div>
     </div>
 
     <div id="video-container" class="video-modal" style="display: none;">
-        <button class="close-modal" onclick="fecharPlayer()" title="Fechar Reprodutor">✕</button>
-        <video id="meu-player-video" controls poster="https://via.placeholder.com/1280x720/050505/ffffff?text=Carregando+Video...">
+        <button class="close-video-btn" onclick="fecharPlayer()" title="Sair do Player">✕ Voltar</button>
+        <video id="meu-player-video" controls poster="https://via.placeholder.com/1280x720/050505/ffffff?text=A+Carregar...">
             <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
         </video>
     </div>
 
     <div id="toast-container"></div>
+
     <script src="script.js"></script>
 </body>
 </html>
