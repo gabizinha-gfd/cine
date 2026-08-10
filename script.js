@@ -36,10 +36,9 @@ function showToast(msg) {
     setTimeout(() => t.remove(), 3500);
 }
 
-// Efeito de escurecer Navbar no scroll
 window.addEventListener('scroll', () => {
     const nav = document.getElementById('main-navbar');
-    if (window.scrollY > 50) nav.classList.add('scrolled');
+    if (window.scrollY > 10) nav.classList.add('scrolled');
     else nav.classList.remove('scrolled');
 });
 
@@ -52,7 +51,11 @@ function resetViews() {
 }
 
 function lockScroll(lock) {
-    document.body.style.overflow = lock ? 'hidden' : 'auto';
+    if (lock) {
+        document.body.classList.add('no-scroll');
+    } else {
+        document.body.classList.remove('no-scroll');
+    }
 }
 
 // ==========================================
@@ -61,10 +64,10 @@ function lockScroll(lock) {
 function toggleAuthMode(e) {
     if (e) e.preventDefault();
     isLoginMode = !isLoginMode;
-    document.getElementById('auth-title').innerText = isLoginMode ? 'Iniciar Sessão' : 'Criar Conta';
+    document.getElementById('auth-title').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
     document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Registar';
-    document.getElementById('auth-switch-text').innerText = isLoginMode ? 'Novo no CineNet?' : 'Já tem conta?';
-    document.getElementById('auth-switch-link').innerText = isLoginMode ? 'Registe-se agora' : 'Entre agora';
+    document.getElementById('auth-switch-text').innerText = isLoginMode ? 'Novo por aqui?' : 'Já tem conta?';
+    document.getElementById('auth-switch-link').innerText = isLoginMode ? 'Registe-se agora.' : 'Entre agora.';
     document.getElementById('auth-error').innerText = '';
 }
 
@@ -75,8 +78,9 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     document.getElementById('auth-error').innerText = 'A processar...';
 
     try {
-        if (isLoginMode) await auth.signInWithEmailAndPassword(email, password);
-        else {
+        if (isLoginMode) {
+            await auth.signInWithEmailAndPassword(email, password);
+        } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
             await userCred.user.updateProfile({ displayName: "Utilizador CineNet", photoURL: "" });
         }
@@ -85,7 +89,11 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     }
 });
 
-function fazerLogout() { auth.signOut().then(() => fecharModalPerfil()); }
+function fazerLogout() { 
+    auth.signOut().then(() => {
+        fecharModalPerfil();
+    }); 
+}
 
 auth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -103,6 +111,7 @@ auth.onAuthStateChanged(async (user) => {
         minhaListaIDs.clear();
         document.getElementById('auth-email').value = '';
         document.getElementById('auth-password').value = '';
+        lockScroll(false); // Garante que a tela de login rola se necessário
     }
 });
 
@@ -230,7 +239,9 @@ function configurarHero(item) {
     
     const isSaved = minhaListaIDs.has(String(item.id));
     const wlBtn = document.getElementById('hero-watchlist-btn');
-    wlBtn.innerHTML = isSaved ? '✓ Na Minha Lista' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 5v14M5 12h14"/></svg> A minha Lista';
+    wlBtn.innerHTML = isSaved 
+        ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Na Lista` 
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
     wlBtn.onclick = () => toggleMinhaLista({ id: item.id, title: title, coverImage: poster });
 }
 
@@ -254,7 +265,7 @@ function criarCardHTML(item, type = 'movie') {
         <div class="movie-card" tabindex="0">
             <button class="card-watchlist-btn ${isSaved ? 'active' : ''}" onclick="event.stopPropagation(); toggleMinhaLista({id:'${id}',title:'${title}',coverImage:'${img}'})">${isSaved ? '✓' : '+'}</button>
             <div onclick="${action}" style="height:100%;">
-                <img src="${img}" loading="lazy" />
+                <img src="${img}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80'" />
                 <div class="card-info"><span class="card-title">${title}</span></div>
             </div>
         </div>`;
@@ -301,13 +312,12 @@ async function filtrarCategoria(cat, element, event) {
     document.getElementById('categories-container').style.display = 'block';
     
     const c = document.getElementById('categories-container');
-    c.innerHTML = '<p style="padding: 40px 4%; color: #aaa; text-align: center;">A procurar...</p>';
+    c.innerHTML = '<p style="padding: 40px 4%; color: #aaa; text-align: center;">A carregar o catálogo...</p>';
 
     const map = {
         'movie': {e: '/movie/popular', t: 'Filmes em Alta', type: 'movie'},
         'tv': {e: '/tv/popular', t: 'Séries do Momento', type: 'tv'},
-        'anime': {e: '/discover/tv?with_genres=16&with_original_language=ja', t: 'Animes Populares', type: 'tv'},
-        'comedy': {e: '/discover/movie?with_genres=35', t: 'Sessão Comédia', type: 'movie'}
+        'anime': {e: '/discover/tv?with_genres=16&with_original_language=ja', t: 'Animes Populares', type: 'tv'}
     };
 
     const d = map[cat];
@@ -319,7 +329,7 @@ async function filtrarCategoria(cat, element, event) {
 }
 
 // ==========================================
-// A MINHA LISTA E HISTÓRICO
+// A MINHA LISTA & HISTÓRICO
 // ==========================================
 async function toggleMinhaLista(data) {
     const user = auth.currentUser;
@@ -338,6 +348,14 @@ async function toggleMinhaLista(data) {
         b.className = `card-watchlist-btn ${minhaListaIDs.has(id) ? 'active' : ''}`;
         b.innerText = minhaListaIDs.has(id) ? '✓' : '+';
     });
+
+    // Se estiver na hero e o filme for o mesmo
+    const wlBtn = document.getElementById('hero-watchlist-btn');
+    if (wlBtn && document.getElementById('hero-play-btn').onclick.toString().includes(id)) {
+        wlBtn.innerHTML = minhaListaIDs.has(id) 
+            ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Na Lista` 
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
+    }
 
     if (document.getElementById('watchlist-section').style.display === 'block') carregarSecaoMinhaLista(user.uid);
 }
@@ -404,7 +422,7 @@ function abrirVideo(url, id, title, img) {
     
     iframe.src = url;
     container.style.display = 'flex';
-    lockScroll(true);
+    lockScroll(true); // Bloqueia scroll do site por trás
 
     try {
         if (container.requestFullscreen) container.requestFullscreen();
@@ -424,7 +442,10 @@ function abrirVideo(url, id, title, img) {
 
 function fecharPlayer() {
     const container = document.getElementById('video-container');
-    document.getElementById('mega-player-iframe').src = '';
+    const iframe = document.getElementById('mega-player-iframe');
+    
+    // Interrompe imediatamente a stream de video/audio
+    iframe.src = '';
     container.style.display = 'none';
     lockScroll(false);
 
@@ -461,7 +482,7 @@ async function carregarEpisodios(id, season, title, img) {
         const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : img;
         list.innerHTML += `
             <div class="episode-card fade-in-up" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
-                <img src="${epImg}" />
+                <img src="${epImg}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&q=80'" />
                 <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Reproduzir episódio'}</p></div>
             </div>`;
     });
