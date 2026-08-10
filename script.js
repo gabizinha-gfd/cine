@@ -350,7 +350,7 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER E SÉRIES
+// PLAYER (ECRÃ COMPLETO NATIVO) E SÉRIES
 // ==========================================
 function assistirFilme(id, title, img) {
     abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
@@ -361,8 +361,31 @@ function assistirEpisodio(id, s, e, title, img) {
 }
 
 function abrirVideo(url, id, title, img) {
-    document.getElementById('mega-player-iframe').src = url;
-    document.getElementById('video-container').style.display = 'block';
+    const container = document.getElementById('video-container');
+    const iframe = document.getElementById('mega-player-iframe');
+    
+    iframe.src = url;
+    container.style.display = 'flex';
+
+    // 1. FORÇA ECRÃ COMPLETO AUTOMÁTICO
+    try {
+        if (container.requestFullscreen) {
+            container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) { /* Safari/iOS */
+            container.webkitRequestFullscreen();
+        } else if (container.msRequestFullscreen) { /* IE/Edge */
+            container.msRequestFullscreen();
+        }
+        
+        // 2. FORÇA ROTAÇÃO HORIZONTAL NO TELEMÓVEL
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(err => console.log("Rotação automática bloqueada:", err));
+        }
+    } catch (e) {
+        console.log("O ecrã completo automático requer interação prévia no dispositivo.");
+    }
+
+    // Gravar no histórico "Vistos Recentemente"
     const user = auth.currentUser;
     if (user) {
         db.collection('users').doc(user.uid).collection('continueWatching').doc(String(id)).set({
@@ -372,8 +395,25 @@ function abrirVideo(url, id, title, img) {
 }
 
 function fecharPlayer() {
-    document.getElementById('mega-player-iframe').src = '';
-    document.getElementById('video-container').style.display = 'none';
+    const container = document.getElementById('video-container');
+    const iframe = document.getElementById('mega-player-iframe');
+    
+    iframe.src = '';
+    container.style.display = 'none';
+
+    // SAI DO ECRÃ COMPLETO E DESTRAVA ROTAÇÃO DO TELEMÓVEL
+    try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+        if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+        }
+    } catch (e) { console.log(e); }
 }
 
 async function abrirModalSerie(id, title, img) {
