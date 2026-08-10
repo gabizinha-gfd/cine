@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#050505">
-    <title>CineNet | Filmes, Séries, Animes & Doramas</title>
+    <title>CineNet | Streaming Completo</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -24,11 +24,12 @@
                 <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this)">Animes</a>
                 <a href="#" class="nav-item" onclick="filtrarCategoria('comedy', this)">Comédia</a>
                 <a href="#" class="nav-item" onclick="filtrarCategoria('dorama', this)">Doramas</a>
+                <a href="#" class="nav-item" onclick="mostrarMinhaLista(this)">A minha Lista</a>
             </nav>
         </div>
         <div class="nav-right">
             <div class="search-box">
-                <input type="text" id="search-input" placeholder="Pesquisar títulos..." onkeyup="pesquisarTitulos(event)">
+                <input type="text" id="search-input" placeholder="Pesquisar títulos..." oninput="pesquisarTitulos(event)">
             </div>
             <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Editar Perfil">
                 <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
@@ -41,19 +42,29 @@
         <div class="hero-overlay"></div>
         <div class="hero-content">
             <span class="badge" id="hero-badge">Destaque</span>
-            <h1 id="hero-title">Carregando...</h1>
+            <h1 id="hero-title">A carregar...</h1>
             <p id="hero-desc">Selecione os melhores conteúdos de streaming em alta definição.</p>
             <div class="hero-buttons">
                 <button class="btn-primary" id="hero-play-btn">▶ Assistir Agora</button>
-                <button class="btn-secondary" id="hero-info-btn">ℹ Mais Informações</button>
+                <button class="btn-secondary" id="hero-watchlist-btn">+ A minha Lista</button>
             </div>
         </div>
     </section>
 
     <main class="main-content">
+        <section class="section-container" id="search-results-section" style="display: none;">
+            <h2 class="section-title" id="search-results-title">Resultados da Pesquisa</h2>
+            <div class="movie-row" id="search-results-row"></div>
+        </section>
+
         <section class="section-container" id="continue-watching-section" style="display: none;">
             <h2 class="section-title">Continuar a Ver</h2>
             <div class="movie-row" id="continue-watching-row"></div>
+        </section>
+
+        <section class="section-container" id="watchlist-section" style="display: none;">
+            <h2 class="section-title">📌 A minha Lista</h2>
+            <div class="movie-row" id="watchlist-row"></div>
         </section>
 
         <div id="categories-container">
