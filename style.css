@@ -1,208 +1,176 @@
 /* ==========================================
-   VARIÁVEIS GLOBAIS E RESET (ORIGINAL)
+   VARIÁVEIS & RESET
    ========================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
     --bg-color: #050505;
-    --primary: #E50914; /* Vermelho estilo Netflix */
-    --primary-glow: rgba(229, 9, 20, 0.6);
+    --card-bg: #141414;
+    --primary: #E50914;
+    --primary-hover: #ff0a16;
     --text-light: #F5F5F1;
+    --text-muted: #A3A3A3;
+    --glass-bg: rgba(10, 10, 10, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.1);
     --radius-sm: 8px;
+    --radius-md: 12px;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    background-color: var(--bg-color);
-    color: var(--text-light);
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    scrollbar-width: thin;
-    scrollbar-color: #333 var(--bg-color);
-    overflow-x: hidden;
+    background-color: var(--bg-color); color: var(--text-light);
+    font-family: 'Inter', sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased;
 }
 
 /* ==========================================
-   ELEMENTOS DE INTERFACE (CROSS-BROWSER)
+   TELA DE AUTENTICAÇÃO
    ========================================== */
-.navbar, .modal-bg {
-    background: rgba(10, 10, 10, 0.85); 
-    -webkit-backdrop-filter: blur(20px); 
-    backdrop-filter: blur(20px);
+.auth-container {
+    position: fixed; inset: 0;
+    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.9)), url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&q=80') center/cover;
+    display: flex; align-items: center; justify-content: center; z-index: 10000;
 }
 
-.logo {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--primary);
+.auth-box {
+    background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(15px); padding: 50px 40px;
+    border-radius: var(--radius-md); width: 90%; max-width: 420px;
+    border: 1px solid var(--glass-border);
 }
 
-.section-container {
-    padding: 80px 4% 20px 4%;
-}
-
-.section-container h2 {
-    font-size: 1.2rem;
-    margin-bottom: 12px;
-}
-
-/* Área de segurança para Mobile (Touch Targets) */
-.btn-primary, .close-modal {
-    min-height: 48px;
-    min-width: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
+.auth-box h1 { margin-bottom: 20px; font-size: 2.2rem; }
+.auth-error-msg { color: var(--primary); font-size: 0.9rem; min-height: 20px; margin-bottom: 10px; }
+.auth-submit-btn { width: 100%; margin-top: 15px; padding: 14px; font-size: 1rem; }
+.auth-switch { margin-top: 25px; color: var(--text-muted); text-align: center; }
+.auth-switch a { color: #fff; text-decoration: none; font-weight: 600; margin-left: 5px; }
 
 /* ==========================================
-   CARROSSEL E CARDS DE FILMES (ORIGINAL)
+   NAVBAR
    ========================================== */
-.movie-row {
-    display: flex;
-    gap: 15px;
-    overflow-x: auto;
-    padding-bottom: 20px;
-    scroll-behavior: smooth;
+.navbar {
+    position: fixed; top: 0; left: 0; width: 100%; height: 70px; padding: 0 4%;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--glass-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); z-index: 1000;
 }
 
-.movie-row::-webkit-scrollbar {
-    height: 8px;
-}
-.movie-row::-webkit-scrollbar-thumb {
-    background: #333;
-    border-radius: 4px;
-}
+.nav-left, .nav-right { display: flex; align-items: center; gap: 20px; }
+.logo { font-size: 1.8rem; font-weight: 800; color: var(--primary); text-transform: uppercase; cursor: pointer; }
+.nav-links { display: flex; gap: 15px; }
+.nav-links .nav-item { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+.nav-links .nav-item:hover, .nav-links .nav-item.active { color: var(--text-light); }
 
-/* Estrutura do Cartão de Filme */
+.search-box input {
+    background: rgba(255, 255, 255, 0.08); border: 1px solid var(--glass-border); padding: 8px 16px;
+    border-radius: 20px; color: #fff; outline: none; width: 200px; transition: 0.3s;
+}
+.search-box input:focus { width: 250px; background: rgba(0,0,0,0.85); border-color: var(--primary); }
+
+.btn-chat-nav {
+    background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: #fff;
+    padding: 8px 14px; border-radius: 20px; cursor: pointer; transition: 0.2s;
+}
+.btn-chat-nav:hover { background: rgba(255,255,255,0.2); }
+
+.user-profile-btn { cursor: pointer; display: flex; align-items: center; }
+.user-profile-btn img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--primary); }
+
+/* ==========================================
+   HERO BANNER & BOTÕES GERAIS
+   ========================================== */
+.hero-banner {
+    position: relative; height: 65vh; min-height: 450px; background-size: cover; background-position: center top;
+    display: flex; align-items: flex-end; padding: 0 4% 60px;
+}
+.hero-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, var(--bg-color) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.8) 100%); }
+.hero-content { position: relative; z-index: 2; max-width: 650px; }
+
+.badge { background: var(--primary); padding: 4px 10px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; }
+.hero-content h1 { font-size: 3rem; font-weight: 800; margin: 12px 0; }
+.hero-content p { color: var(--text-muted); line-height: 1.5; margin-bottom: 24px; }
+
+.hero-buttons { display: flex; gap: 12px; }
+.btn-primary, .btn-secondary { padding: 12px 24px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; border: none; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-secondary { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid var(--glass-border); }
+
+/* ==========================================
+   CARROSSEL E CARDS
+   ========================================== */
+.main-content { position: relative; z-index: 3; margin-top: -30px; }
+.section-container { padding: 0 4% 30px; }
+.section-title { font-size: 1.3rem; margin-bottom: 12px; }
+
+.movie-row { display: flex; gap: 12px; overflow-x: auto; padding: 15px 0; scrollbar-width: none; }
+.movie-row::-webkit-scrollbar { display: none; }
+
 .movie-card {
-    min-width: 200px;
-    height: 300px;
-    background-color: #222;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: transform 0.3s ease;
-    position: relative; /* Necessário para a barra de progresso */
-    overflow: hidden; /* Mantém a barra dentro dos limites do card */
-    flex-shrink: 0;
+    min-width: 170px; width: 170px; height: 255px; border-radius: var(--radius-sm);
+    cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0; transition: transform 0.3s;
 }
+.movie-card img { width: 100%; height: 100%; object-fit: cover; }
+.movie-card:hover { transform: scale(1.08); z-index: 10; border: 1px solid var(--glass-border); box-shadow: 0 10px 20px rgba(0,0,0,0.8); }
 
-.movie-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+.card-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 10px; background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent); opacity: 0; transition: 0.3s; }
+.movie-card:hover .card-info { opacity: 1; }
+.card-title { font-size: 0.85rem; font-weight: 600; }
 
-.movie-card:hover {
-    transform: scale(1.05);
+.card-watchlist-btn {
+    position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); color: #fff;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem; cursor: pointer; z-index: 15;
 }
+.card-watchlist-btn:hover, .card-watchlist-btn.active { background: var(--primary); border-color: var(--primary); }
+
+.progress-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.2); z-index: 5; }
+.progress-bar { height: 100%; background: var(--primary); }
 
 /* ==========================================
-   UI: BARRA DE PROGRESSO (CONTINUAR A VER)
+   CINEBOT (CHAT IA)
    ========================================== */
-.progress-bar-container {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 4px; /* Altura da barra */
-    background: rgba(255, 255, 255, 0.2); /* Cinzento transparente */
-    z-index: 2;
-}
+.chat-container { background: var(--card-bg); border-radius: var(--radius-md); width: 100%; max-width: 400px; height: 500px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--glass-border); }
+.chat-header { background: #1a1a1a; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); }
+.chat-title { font-weight: bold; }
+.chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.chat-message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; }
+.chat-message.bot { background: #222; align-self: flex-start; border-bottom-left-radius: 0; }
+.chat-message.user { background: var(--primary); align-self: flex-end; border-bottom-right-radius: 0; }
+.chat-quick-actions { padding: 10px; display: flex; gap: 5px; overflow-x: auto; border-top: 1px solid var(--glass-border); }
+.chat-quick-actions button { background: #222; color: #fff; border: 1px solid var(--glass-border); padding: 5px 10px; border-radius: 15px; cursor: pointer; white-space: nowrap; font-size: 0.8rem; }
+.chat-input-area { padding: 10px; display: flex; gap: 5px; background: #1a1a1a; }
+.chat-input-area input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid var(--glass-border); background: #000; color: #fff; outline: none; }
 
-.progress-bar {
-    height: 100%;
-    background-color: var(--primary); /* Vermelho */
-    width: 0%; /* Definido pelo JavaScript */
-    transition: width 0.3s ease;
-}
+.bot-card { display: flex; gap: 10px; background: #000; padding: 10px; margin-top: 5px; border-radius: var(--radius-sm); cursor: pointer; }
+.bot-card img { width: 50px; height: 75px; object-fit: cover; }
+.bot-card div h4 { font-size: 0.85rem; }
 
 /* ==========================================
-   MODAL DE EPISÓDIOS (MANTENDO O MESMO DESIGN)
+   MODAIS: EPISÓDIOS E OUTROS
    ========================================== */
-.episodes-dialog {
-    background: #141414;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-sm);
-    padding: 20px;
-    max-width: 550px;
-    width: 100%;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-}
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-card { background: var(--card-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 30px; width: 100%; max-width: 420px; position: relative; max-height: 90vh; }
+.episodes-card { max-width: 600px; display: flex; flex-direction: column; }
+.close-modal-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
 
-.season-dropdown {
-    width: 100%;
-    padding: 10px;
-    background: #222;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-sm);
-    color: #fff;
-    font-size: 0.95rem;
-    outline: none;
-}
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+.form-group input { width: 100%; padding: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: #fff; }
 
-.episodes-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow-y: auto;
-    margin-top: 10px;
-    padding-right: 5px;
-}
+.season-dropdown { width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: #fff; font-size: 0.95rem; outline: none; }
+.episodes-list-container { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; margin-top: 15px; padding-right: 5px; }
+.episode-card { display: flex; gap: 15px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid var(--glass-border); }
+.episode-card:hover { background: rgba(229,9,20,0.2); border-color: var(--primary); }
+.episode-card img { width: 110px; height: 65px; object-fit: cover; border-radius: 4px; }
+.ep-info h4 { font-size: 0.9rem; margin-bottom: 4px; }
+.ep-info p { font-size: 0.78rem; color: var(--text-muted); }
 
-.episode-item {
-    display: flex;
-    gap: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: var(--radius-sm);
-    padding: 8px;
-    cursor: pointer;
-    align-items: center;
-    transition: background 0.2s ease;
-}
+/* Video Player */
+.video-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.video-modal iframe { width: 100%; height: 100%; border: none; }
+.close-video-btn { position: absolute; top: 20px; left: 20px; z-index: 10000; background: rgba(0,0,0,0.7); color: #fff; border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 20px; cursor: pointer; }
+.close-video-btn:hover { background: var(--primary); }
 
-.episode-item:hover {
-    background: rgba(229, 9, 20, 0.2);
-}
+/* Toasts */
+#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10001; display: flex; flex-direction: column; gap: 10px; }
+.toast { background: var(--primary); color: #fff; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 0.9rem; }
 
-.episode-item img {
-    width: 100px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-.episode-item-info h4 {
-    font-size: 0.9rem;
-    color: var(--text-light);
-    margin-bottom: 2px;
-}
-
-.episode-item-info p {
-    font-size: 0.75rem;
-    color: #aaa;
-}
-
-/* ==========================================
-   OTIMIZAÇÃO PARA SMART TV (D-PAD)
-   ========================================== */
-:focus-visible {
-    outline: 4px solid var(--primary);
-    outline-offset: 4px;
-    border-radius: var(--radius-sm);
-    box-shadow: 0 0 20px var(--primary-glow);
-    transform: scale(1.05);
-    transition: all 0.2s ease-in-out;
-    z-index: 10;
-}
-
-/* Correção de Overscan em Smart TVs gigantes */
-@media (min-width: 1920px) {
-    .section-container { padding: 120px 5% 60px 5%; }
-}
+/* Foco D-Pad Smart TV */
+:focus-visible { outline: 3px solid var(--primary); border-radius: var(--radius-sm); }
