@@ -1,57 +1,291 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#050505">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>CineNet</title>
-    
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- SDKs do Firebase (Certifique-se de que usa as suas versões atuais) -->
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth-compat.js"></script>
-</head>
-<body>
-
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="logo">CineNet</div>
-        <!-- Seus links da navbar aqui -->
-    </nav>
-
-    <!-- Secção: Continuar a Ver (Escondida por defeito até o JS carregar os dados) -->
-    <section class="section-container" id="continue-watching-section" style="display: none;">
-        <h2>Continuar a Ver</h2>
-        <div class="movie-row" id="continue-watching-row">
-            <!-- Os cards com a barra vermelha serão gerados aqui pelo JavaScript -->
-        </div>
-    </section>
-
-    <!-- Secção: Filmes em Destaque -->
-    <section class="section-container">
-        <h2>Filmes Populares</h2>
-        <div class="movie-row">
-            <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme1')">
-                <img src="https://via.placeholder.com/200x300/333/fff?text=Filme+1" alt="Filme 1">
-            </div>
-            <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme2')">
-                <img src="https://via.placeholder.com/200x300/333/fff?text=Filme+2" alt="Filme 2">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>CineNet</title>
+        <link rel="stylesheet" href="style.css">
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    </head>
+    <body>
+        <div id="auth-screen" class="auth-container animate-fade-in">
+            <div class="auth-box">
+                <h1 id="auth-title">Criar Conta</h1>
+                <p id="auth-error" class="auth-error-msg"></p>
+                <form id="auth-form">
+                    <input
+                        type="email"
+                        id="auth-email"
+                        placeholder="E-mail"
+                        required
+                    >
+                    <div class="password-input-wrapper">
+                        <input
+                            type="password"
+                            id="auth-password"
+                            placeholder="Palavra-passe"
+                            required
+                        >
+                        <button type="button" id="btn-toggle-password" class="btn-toggle-pwd" title="Mostrar/Ocultar Senha">👁️</button>
+                    </div>
+                    <button type="submit" id="auth-submit-btn" class="btn-primary">Criar Conta</button>
+                </form>
+                <p class="auth-switch">
+                    <span id="auth-switch-text">Já tem conta?</span>
+                    <a href="#" id="auth-switch-link">Entrar</a>
+                </p>
             </div>
         </div>
-    </section>
 
-    <!-- Reprodutor de Vídeo (Exemplo Oculto) -->
-    <div id="video-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
-        <button class="close-modal" onclick="fecharPlayer()">X</button>
-        <video id="meu-player-video" controls style="width: 100%; height: 100%;">
-            <source src="seu-video.mp4" type="video/mp4">
-        </video>
-    </div>
+        <div id="app-screen" style="display: none;">
+            <header class="navbar" id="main-navbar">
+                <div class="nav-left">
+                    <div class="logo" onclick="irParaHome()">CineNet</div>
+                    <nav class="nav-links">
+                        <a onclick="irParaHome()">Início</a>
+                        <a onclick="irParaFilmes()">Filmes</a>
+                        <a onclick="irParaSeries()">Séries</a>
+                        <a onclick="irParaAnimes()">Animes</a>
+                        <a onclick="irParaDoramas()">Doramas</a>
+                        <a onclick="irParaWatchlist()">Minha Lista</a>
+                    </nav>
+                </div>
+                <div class="nav-right">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Pesquisar títulos...">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    <button id="btn-chat-toggle" class="btn-chat-nav" title="Abrir CineBot">🤖 CineBot</button>
+                    <div class="profile-menu">
+                        <div class="avatar" id="nav-avatar">U</div>
+                        <div class="dropdown-content">
+                            <a onclick="abrirPerfil()">Os meus dados</a>
+                            <a id="btn-admin-panel" onclick="abrirPainelAdmin()" style="display: none; color: #ff0055; font-weight: bold;">⚡ Painel Admin</a>
+                            <a onclick="fazerLogout()">Sair</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
 
-    <script src="script.js"></script>
-</body>
+            <section id="hero" class="hero-banner">
+                <div class="hero-overlay"></div>
+                <div class="hero-content">
+                    <h1 id="hero-title">A carregar...</h1>
+                    <p id="hero-overview">A carregar detalhes do destaque...</p>
+                    <div class="hero-buttons">
+                        <button id="hero-play" class="btn-play">▶ Assistir</button>
+                        <button id="hero-info" class="btn-info">ℹ Mais Informações</button>
+                    </div>
+                </div>
+            </section>
+
+            <main class="main-content">
+                <div id="continue-watching-section" class="section-container" style="display: none;">
+                    <h2>Continuar a Ver</h2>
+                    <div class="carousel-wrapper">
+                        <button class="carousel-btn prev" onclick="scrollCarousel('continue-watching-row', -1)">❮</button>
+                        <div id="continue-watching-row" class="movie-row"></div>
+                        <button class="carousel-btn next" onclick="scrollCarousel('continue-watching-row', 1)">❯</button>
+                    </div>
+                </div>
+
+                <div id="catalog-section">
+                    <div class="section-container">
+                        <h2>Alta Votação</h2>
+                        <div class="carousel-wrapper">
+                            <button class="carousel-btn prev" onclick="scrollCarousel('row-top-rated', -1)">❮</button>
+                            <div id="row-top-rated" class="movie-row"></div>
+                            <button class="carousel-btn next" onclick="scrollCarousel('row-top-rated', 1)">❯</button>
+                        </div>
+                    </div>
+
+                    <div class="section-container">
+                        <h2>Ação e Aventura</h2>
+                        <div class="carousel-wrapper">
+                            <button class="carousel-btn prev" onclick="scrollCarousel('row-action', -1)">❮</button>
+                            <div id="row-action" class="movie-row"></div>
+                            <button class="carousel-btn next" onclick="scrollCarousel('row-action', 1)">❯</button>
+                        </div>
+                    </div>
+
+                    <div class="section-container">
+                        <h2>Ficção Científica</h2>
+                        <div class="carousel-wrapper">
+                            <button class="carousel-btn prev" onclick="scrollCarousel('row-scifi', -1)">❮</button>
+                            <div id="row-scifi" class="movie-row"></div>
+                            <button class="carousel-btn next" onclick="scrollCarousel('row-scifi', 1)">❯</button>
+                        </div>
+                    </div>
+
+                    <div class="section-container">
+                        <h2>Comédia</h2>
+                        <div class="carousel-wrapper">
+                            <button class="carousel-btn prev" onclick="scrollCarousel('row-comedy', -1)">❮</button>
+                            <div id="row-comedy" class="movie-row"></div>
+                            <button class="carousel-btn next" onclick="scrollCarousel('row-comedy', 1)">❯</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="grid-view-section" class="section-container" style="display: none;">
+                    <h2 id="grid-view-title">Resultados</h2>
+                    <div id="grid-view-container" class="movies-grid"></div>
+                </div>
+            </main>
+
+            <div id="chat-modal" class="modal-bg" style="display: none;">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <div class="chat-title">
+                            <span>🤖</span> CineBot IA
+                        </div>
+                        <button id="close-chat-btn" class="close-modal">✖</button>
+                    </div>
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="chat-message bot">
+                            Olá! Sou o assistente do CineNet. Como posso ajudar-te hoje?
+                        </div>
+                    </div>
+                    <div id="chat-quick-actions" class="chat-quick-actions">
+                        <button onclick="enviarAcaoRapida('Recomenda um filme de ação')">💥 Ação</button>
+                        <button onclick="enviarAcaoRapida('Recomenda uma comédia')">😂 Comédia</button>
+                        <button onclick="enviarAcaoRapida('Surpreende-me!')">🎲 Surpresa</button>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Escreve aqui a tua pergunta...">
+                        <button id="chat-send-btn" class="btn-primary">Enviar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="details-modal" class="modal-bg" style="display: none;">
+                <div class="modal-content">
+                    <button id="close-details-btn" class="close-modal">✖</button>
+                    <div id="modal-banner" class="modal-banner">
+                        <div class="modal-banner-overlay"></div>
+                        <div class="modal-banner-info">
+                            <h2 id="modal-title">Título</h2>
+                            <div class="modal-actions">
+                                <button id="modal-play-btn" class="btn-play">▶ Assistir</button>
+                                <button id="modal-watchlist-btn" class="btn-watchlist">+ Minha Lista</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-body">
+                        <div class="modal-meta">
+                            <span id="modal-rating" class="rating-badge">★ 0.0</span>
+                            <span id="modal-year">2023</span>
+                            <span id="modal-runtime">0 min</span>
+                        </div>
+                        <p id="modal-overview">Sinopse do título...</p>
+                        
+                        <div id="tv-episodes-section" style="display: none; margin-top: 20px;">
+                            <h3>Episódios</h3>
+                            <select id="season-select" class="custom-select"></select>
+                            <div id="episodes-list" class="episodes-list"></div>
+                        </div>
+
+                        <div class="reviews-section">
+                            <h3>Avaliações da Comunidade</h3>
+                            <div id="reviews-list" class="reviews-list"></div>
+                            <div class="add-review-form">
+                                <h4>Deixa a tua avaliação</h4>
+                                <select id="review-score" class="custom-select">
+                                    <option value="5">★★★★★ (5/5)</option>
+                                    <option value="4">★★★★☆ (4/5)</option>
+                                    <option value="3">★★★☆☆ (3/5)</option>
+                                    <option value="2">★★☆☆☆ (2/5)</option>
+                                    <option value="1">★☆☆☆☆ (1/5)</option>
+                                </select>
+                                <textarea id="review-comment" placeholder="Escreve a tua opinião sobre este título..."></textarea>
+                                <button id="submit-review-btn" class="btn-primary">Publicar Avaliação</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="profile-modal" class="modal-bg" style="display: none;">
+                <div class="modal-content profile-content">
+                    <button id="close-profile-btn" class="close-modal">✖</button>
+                    <h2>Perfil do Utilizador</h2>
+                    <div class="profile-body">
+                        <p><strong>Email:</strong> <span id="profile-email-text">-</span></p>
+                        <div class="avatar-selection">
+                            <h4>Escolhe o teu Avatar:</h4>
+                            <div class="avatars-grid">
+                                <div class="avatar-option" onclick="selecionarAvatar('🔴')">🔴</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🔵')">🔵</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🟢')">🟢</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🟡')">🟡</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🟣')">🟣</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🦁')">🦁</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🚀')">🚀</div>
+                                <div class="avatar-option" onclick="selecionarAvatar('🎬')">🎬</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="admin-modal" class="modal-bg" style="display: none;">
+                <div class="modal-content admin-content">
+                    <button id="close-admin-btn" class="close-modal">✖</button>
+                    <h2>⚡ Painel Administrativo</h2>
+                    <p>Métricas em tempo real da aplicação:</p>
+                    <div class="admin-stats">
+                        <div class="stat-card">
+                            <h3 id="stat-total-users">0</h3>
+                            <p>Utilizadores Registados</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="stat-total-watchlist">0</h3>
+                            <p>Itens em Listas</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="stat-total-reviews">0</h3>
+                            <p>Avaliações Realizadas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="streaming-player-screen" class="player-fullscreen animate-fade-in" style="display: none;">
+                <button id="close-player-btn" class="close-player">✖ Voltar</button>
+                <iframe id="videoPlayer" allowfullscreen allow="autoplay"></iframe>
+            </div>
+
+            <div id="mobile-submenu" class="mobile-submenu">
+                <a onclick="irParaFilmes(); toggleSubmenu()">Filmes</a>
+                <a onclick="irParaSeries(); toggleSubmenu()">Séries</a>
+                <a onclick="irParaAnimes(); toggleSubmenu()">Animes</a>
+                <a onclick="irParaDoramas(); toggleSubmenu()">Doramas</a>
+                <a onclick="irParaWatchlist(); toggleSubmenu()">Minha Lista</a>
+            </div>
+
+            <div class="mobile-bottom-nav">
+                <a id="mob-nav-home" class="active-nav" onclick="irParaHome()">
+                    🏠
+                    <span>Início</span>
+                </a>
+                <a id="mob-nav-titulos" onclick="toggleSubmenu()">
+                    📚
+                    <span>Títulos</span>
+                </a>
+                <a id="mob-nav-search" onclick="irParaBusca()">
+                    🔍
+                    <span>Buscar</span>
+                </a>
+                <a id="mob-nav-chat" onclick="abrirChat()">
+                    🤖
+                    <span>CineBot</span>
+                </a>
+            </div>
+        </div>
+
+        <div id="toast-container"></div>
+        <script src="script.js"></script>
+    </body>
 </html>
