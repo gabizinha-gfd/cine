@@ -1,17 +1,13 @@
 /* ==========================================
-   RESET & VARIÁVEIS DE DESIGN
+   VARIÁVEIS GLOBAIS E RESET
    ========================================== */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 :root {
     --bg-color: #050505;
     --card-bg: #141414;
-    --primary: #E50914;
-    --primary-hover: #ff0a16;
-    --primary-glow: rgba(229, 9, 20, 0.5);
+    --primary: #E50914; /* Vermelho estilo Netflix */
+    --primary-glow: rgba(229, 9, 20, 0.6);
     --text-light: #F5F5F1;
     --text-muted: #A3A3A3;
-    --glass-bg: rgba(10, 10, 10, 0.85);
     --glass-border: rgba(255, 255, 255, 0.1);
     --radius-sm: 8px;
     --radius-md: 12px;
@@ -26,45 +22,15 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-light);
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: #333 var(--bg-color);
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
 }
 
 /* ==========================================
-   TELA DE AUTENTICAÇÃO
-   ========================================== */
-.auth-container {
-    position: fixed;
-    inset: 0;
-    background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.9)), url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&q=80') center/cover;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-}
-
-.auth-box {
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(15px);
-    padding: 50px 40px;
-    border-radius: var(--radius-md);
-    width: 90%;
-    max-width: 420px;
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.8);
-}
-
-.auth-box h1 { margin-bottom: 20px; font-size: 2.2rem; font-weight: 700; }
-.auth-error-msg { color: var(--primary); font-size: 0.9rem; min-height: 20px; margin-bottom: 10px; }
-.auth-submit-btn { width: 100%; margin-top: 15px; padding: 14px; font-size: 1rem; }
-
-.auth-switch { margin-top: 25px; color: var(--text-muted); font-size: 0.95rem; text-align: center; }
-.auth-switch a { color: #fff; text-decoration: none; font-weight: 600; margin-left: 5px; }
-.auth-switch a:hover { text-decoration: underline; color: var(--primary); }
-
-/* ==========================================
-   NAVBAR (HEADER)
+   NAVBAR
    ========================================== */
 .navbar {
     position: fixed;
@@ -75,86 +41,70 @@ body {
     padding: 0 4%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    background: var(--glass-bg);
+    gap: 30px;
+    background: rgba(10, 10, 10, 0.85); 
+    -webkit-backdrop-filter: blur(20px); 
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--glass-border);
     z-index: 1000;
 }
 
-.nav-left, .nav-right { display: flex; align-items: center; gap: 20px; }
-.logo { font-size: 1.8rem; font-weight: 800; color: var(--primary); text-transform: uppercase; cursor: pointer; }
-
-.nav-links { display: flex; gap: 15px; }
-.nav-links .nav-item { color: var(--text-muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s ease; }
-.nav-links .nav-item:hover, .nav-links .nav-item.active { color: var(--text-light); }
-
-.search-box input {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid var(--glass-border);
-    padding: 8px 16px;
-    border-radius: 20px;
-    color: var(--text-light);
-    outline: none;
-    width: 200px;
-    transition: all 0.3s ease;
+.logo {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    cursor: pointer;
 }
-.search-box input:focus { border-color: var(--primary); background: rgba(0, 0, 0, 0.85); width: 250px; }
 
-.user-profile-btn {
-    display: flex; align-items: center; gap: 10px; cursor: pointer;
-    padding: 5px 12px; border-radius: 20px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);
-}
-.user-profile-btn:hover { background: rgba(255, 255, 255, 0.15); }
-.user-profile-btn img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary); }
-
-/* ==========================================
-   HERO BANNER
-   ========================================== */
-.hero-banner {
-    position: relative;
-    height: 65vh;
-    min-height: 450px;
-    background-size: cover;
-    background-position: center top;
+.nav-links {
     display: flex;
-    align-items: flex-end;
-    padding: 0 4% 60px 4%;
-    transition: background-image 0.5s ease;
+    gap: 20px;
 }
-.hero-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, var(--bg-color) 0%, rgba(5,5,5,0.3) 50%, rgba(5,5,5,0.8) 100%); }
-.hero-content { position: relative; z-index: 2; max-width: 650px; }
 
-.badge { background: var(--primary); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
-.hero-content h1 { font-size: 3rem; font-weight: 800; margin: 12px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
-.hero-content p { color: var(--text-muted); font-size: 1rem; line-height: 1.5; margin-bottom: 24px; text-shadow: 0 1px 5px rgba(0,0,0,0.8); }
-
-.hero-buttons { display: flex; gap: 12px; }
-.btn-primary, .btn-secondary {
-    padding: 12px 24px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: none; display: flex; align-items: center; justify-content: center;
+.nav-links .nav-item {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: color 0.2s ease;
 }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { background: var(--primary-hover); transform: scale(1.03); box-shadow: 0 4px 15px var(--primary-glow); }
-.btn-secondary { background: rgba(255,255,255,0.15); color: #fff; border: 1px solid var(--glass-border); backdrop-filter: blur(5px); }
-.btn-secondary:hover { background: rgba(255,255,255,0.25); transform: scale(1.03); }
+
+.nav-links .nav-item:hover,
+.nav-links .nav-item.active {
+    color: var(--text-light);
+}
 
 /* ==========================================
-   CARROSSEL E CARDS (SEÇÕES)
+   CONTEÚDO E CARROSSEL
    ========================================== */
-.main-content { position: relative; z-index: 3; margin-top: -30px; }
-.section-container { padding: 0 4% 30px; }
-.section-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 12px; }
+.main-content {
+    padding-top: 90px;
+}
+
+.section-container {
+    padding: 20px 4%;
+}
+
+.section-container h2 {
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+}
 
 .movie-row {
     display: flex;
-    gap: 12px;
+    gap: 15px;
     overflow-x: auto;
-    padding: 15px 0; 
+    padding-bottom: 20px;
     scroll-behavior: smooth;
     scrollbar-width: none;
 }
-.movie-row::-webkit-scrollbar { display: none; }
 
+.movie-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* Estrutura do Cartão de Filme / Série */
 .movie-card {
     min-width: 170px;
     width: 170px;
@@ -162,88 +112,202 @@ body {
     background-color: var(--card-bg);
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s;
+    transition: transform 0.3s ease, border-color 0.3s ease;
     position: relative;
     overflow: hidden;
     flex-shrink: 0;
+    border: 1px solid transparent;
 }
-.movie-card img { width: 100%; height: 100%; object-fit: cover; }
-.movie-card:hover { transform: scale(1.08); box-shadow: 0 10px 20px rgba(0,0,0,0.8); z-index: 10; border: 1px solid var(--glass-border); }
 
-/* Botão Guardar Lista no Card */
-.card-watchlist-btn {
-    position: absolute; top: 8px; right: 8px;
-    background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border); color: #fff;
-    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; z-index: 15; cursor: pointer; transition: all 0.2s ease;
+.movie-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
-.card-watchlist-btn:hover, .card-watchlist-btn.active { background: var(--primary); border-color: var(--primary); }
+
+.movie-card:hover {
+    transform: scale(1.05);
+    border-color: var(--glass-border);
+}
 
 .card-info {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    padding: 10px; background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent);
-    opacity: 0; transition: opacity 0.3s;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: linear-gradient(0deg, rgba(0,0,0,0.95), transparent);
 }
-.movie-card:hover .card-info { opacity: 1; }
-.card-title { font-size: 0.85rem; font-weight: 600; text-shadow: 0 1px 3px #000; }
 
-.progress-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 5px; background: rgba(255,255,255,0.2); z-index: 5; }
-.progress-bar { height: 100%; background-color: var(--primary); transition: width 0.3s ease; box-shadow: 0 0 8px var(--primary-glow); }
+.card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-light);
+}
 
 /* ==========================================
-   MODAIS (PERFIL E VIDEO)
+   UI: BARRA DE PROGRESSO (CONTINUAR A VER)
+   ========================================== */
+.progress-bar-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    z-index: 2;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--primary);
+    width: 100%;
+    box-shadow: 0 0 8px var(--primary-glow);
+}
+
+/* ==========================================
+   MODAL DE EPISÓDIOS (SÉRIES E ANIMES)
    ========================================== */
 .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
-    z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
 }
-.modal-card {
-    background: var(--card-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-    padding: 30px; width: 100%; max-width: 420px; position: relative;
-    max-height: 90vh; overflow-y: auto;
+
+.episodes-card {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 25px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
 }
-.close-modal-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #fff; font-size: 1.2rem; cursor: pointer; }
 
-.form-group { margin-bottom: 20px; }
-.form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
-.form-group input { width: 100%; padding: 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: #fff; }
-.form-group input:focus { border-color: var(--primary); outline: none; }
-
-.avatar-presets { display: flex; gap: 12px; }
-.preset-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
-.preset-avatar.active, .preset-avatar:hover { border-color: var(--primary); transform: scale(1.1); }
-
-.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-.divider { border: 0; height: 1px; background: var(--glass-border); margin: 20px 0; }
-.btn-logout { width: 100%; padding: 12px; background: transparent; border: 1px solid var(--primary); color: var(--primary); border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; transition: 0.2s; }
-.btn-logout:hover { background: var(--primary); color: #fff; }
-
-/* Video Player (Atualizado para o IFRAME) */
-.video-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-.video-modal iframe { width: 100%; height: 100%; border: none; background: #000; }
-.close-video-btn {
-    position: absolute; top: 20px; left: 20px; z-index: 10000; background: rgba(0,0,0,0.6);
-    color: #fff; border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600;
+.close-modal-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
 }
-.close-video-btn:hover { background: var(--primary); border-color: var(--primary); }
 
-/* TOASTS */
-#toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10001; display: flex; flex-direction: column; gap: 10px; }
-.toast { background: var(--primary); color: #fff; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 0.9rem; box-shadow: 0 4px 15px rgba(0,0,0,0.6); animation: slideIn 0.3s ease forwards; }
+.season-dropdown {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 0.95rem;
+    outline: none;
+}
 
-@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.episodes-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    margin-top: 15px;
+    padding-right: 5px;
+}
+
+.episode-card {
+    display: flex;
+    gap: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.episode-card:hover {
+    background: rgba(229, 9, 20, 0.2);
+    border-color: var(--primary);
+    transform: translateX(4px);
+}
+
+.episode-card img {
+    width: 110px;
+    height: 65px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.ep-info h4 {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
+}
+
+.ep-info p {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
 
 /* ==========================================
-   RESPONSIVIDADE
+   REPRODUTOR DE VÍDEO (IFRAME)
    ========================================== */
-:focus-visible { outline: 3px solid var(--primary); border-radius: var(--radius-sm); }
+.video-modal {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
-@media (max-width: 768px) {
-    .nav-links { display: none; }
-    .search-box input { width: 140px; }
-    .search-box input:focus { width: 180px; }
-    .hero-content h1 { font-size: 2.2rem; }
-    .movie-card { min-width: 130px; width: 130px; height: 195px; }
-    .nav-left, .nav-right { gap: 10px; }
-    .user-profile-btn span { display: none; }
+.video-modal iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #000;
+}
+
+.close-video-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10000;
+    background: rgba(0,0,0,0.7);
+    color: #fff;
+    border: 1px solid var(--glass-border);
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.close-video-btn:hover {
+    background: var(--primary);
+}
+
+/* ==========================================
+   OTIMIZAÇÃO PARA SMART TV (D-PAD)
+   ========================================== */
+:focus-visible {
+    outline: 4px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 20px var(--primary-glow);
+    transform: scale(1.05);
+    transition: all 0.2s ease-in-out;
+    z-index: 10;
 }
