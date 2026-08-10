@@ -1,0 +1,127 @@
+/* ==========================================
+   VARIÁVEIS GLOBAIS E RESET
+   ========================================== */
+:root {
+    --bg-color: #050505;
+    --primary: #E50914; /* Vermelho estilo Netflix */
+    --primary-glow: rgba(229, 9, 20, 0.6);
+    --text-light: #F5F5F1;
+    --radius-sm: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-light);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    scrollbar-width: thin;
+    scrollbar-color: #333 var(--bg-color);
+    overflow-x: hidden;
+}
+
+/* ==========================================
+   ELEMENTOS DE INTERFACE (CROSS-BROWSER)
+   ========================================== */
+.navbar, .modal-bg {
+    background: rgba(10, 10, 10, 0.85); 
+    -webkit-backdrop-filter: blur(20px); 
+    backdrop-filter: blur(20px);
+}
+
+.section-container {
+    padding: 80px 4% 20px 4%;
+}
+
+/* Área de segurança para Mobile (Touch Targets) */
+.btn-primary, .close-modal {
+    min-height: 48px;
+    min-width: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+/* ==========================================
+   CARROSSEL E CARDS DE FILMES
+   ========================================== */
+.movie-row {
+    display: flex;
+    gap: 15px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    scroll-behavior: smooth;
+}
+
+.movie-row::-webkit-scrollbar {
+    height: 8px;
+}
+.movie-row::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
+
+/* Estrutura do Cartão de Filme */
+.movie-card {
+    min-width: 200px;
+    height: 300px;
+    background-color: #222;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    position: relative; /* Necessário para a barra de progresso */
+    overflow: hidden; /* Mantém a barra dentro dos limites do card */
+}
+
+.movie-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.movie-card:hover {
+    transform: scale(1.05);
+}
+
+/* ==========================================
+   UI: BARRA DE PROGRESSO (CONTINUAR A VER)
+   ========================================== */
+.progress-bar-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px; /* Altura da barra */
+    background: rgba(255, 255, 255, 0.2); /* Cinzento transparente */
+    z-index: 2;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: var(--primary); /* Vermelho */
+    width: 0%; /* Definido pelo JavaScript */
+    transition: width 0.3s ease;
+}
+
+/* ==========================================
+   OTIMIZAÇÃO PARA SMART TV (D-PAD)
+   ========================================== */
+:focus-visible {
+    outline: 4px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 0 20px var(--primary-glow);
+    transform: scale(1.05);
+    transition: all 0.2s ease-in-out;
+    z-index: 10;
+}
+
+/* Correção de Overscan em Smart TVs gigantes */
+@media (min-width: 1920px) {
+    .section-container { padding: 120px 5% 60px 5%; }
+}

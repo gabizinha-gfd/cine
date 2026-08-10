@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#050505">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>CineNet</title>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- SDKs do Firebase (Certifique-se de que usa as suas versões atuais) -->
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="logo">CineNet</div>
+        <!-- Seus links da navbar aqui -->
+    </nav>
+
+    <!-- Secção: Continuar a Ver (Escondida por defeito até o JS carregar os dados) -->
+    <section class="section-container" id="continue-watching-section" style="display: none;">
+        <h2>Continuar a Ver</h2>
+        <div class="movie-row" id="continue-watching-row">
+            <!-- Os cards com a barra vermelha serão gerados aqui pelo JavaScript -->
+        </div>
+    </section>
+
+    <!-- Secção: Filmes em Destaque -->
+    <section class="section-container">
+        <h2>Filmes Populares</h2>
+        <div class="movie-row">
+            <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme1')">
+                <img src="https://via.placeholder.com/200x300/333/fff?text=Filme+1" alt="Filme 1">
+            </div>
+            <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('filme2')">
+                <img src="https://via.placeholder.com/200x300/333/fff?text=Filme+2" alt="Filme 2">
+            </div>
+        </div>
+    </section>
+
+    <!-- Reprodutor de Vídeo (Exemplo Oculto) -->
+    <div id="video-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999;">
+        <button class="close-modal" onclick="fecharPlayer()">X</button>
+        <video id="meu-player-video" controls style="width: 100%; height: 100%;">
+            <source src="seu-video.mp4" type="video/mp4">
+        </video>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
