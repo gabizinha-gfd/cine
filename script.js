@@ -11,7 +11,6 @@ const firebaseConfig = {
     appId: "1:1098247355110:web:c9f867826f26b0ef171927"
 };
 
-// Inicialização Segura do Firebase
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -22,9 +21,6 @@ const TMDB_API_KEY = "17c56e3825d7fbae6581866083d0d778";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 
-let filmeAtualInfo = null;
-let ultimaGravacao = 0;
-const INTERVALO_GRAVACAO = 5;
 let minhaListaIDs = new Set();
 let debounceSearchTimer;
 let isLoginMode = true;
@@ -43,7 +39,7 @@ function showToast(msg) {
 }
 
 // ==========================================
-// SISTEMA DE AUTENTICAÇÃO (LOGIN / REGISTO)
+// SISTEMA DE AUTENTICAÇÃO
 // ==========================================
 function toggleAuthMode(event) {
     if (event) event.preventDefault();
@@ -72,7 +68,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
                 photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80"
             });
         }
-        errorEl.innerText = ''; // Limpar em caso de sucesso
+        errorEl.innerText = '';
     } catch (error) {
         if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             errorEl.innerText = 'E-mail ou palavra-passe incorretos.';
@@ -87,12 +83,9 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 });
 
 function fazerLogout() {
-    auth.signOut().then(() => {
-        fecharModalPerfil();
-    });
+    auth.signOut().then(() => fecharModalPerfil());
 }
 
-// Estado da Sessão
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         document.getElementById('auth-screen').style.display = 'none';
@@ -106,7 +99,6 @@ auth.onAuthStateChanged(async (user) => {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
         
-        // Limpar dados para não cruzar informações entre contas
         minhaListaIDs.clear();
         document.getElementById('auth-email').value = '';
         document.getElementById('auth-password').value = '';
@@ -115,7 +107,7 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 // ==========================================
-// NAVEGAÇÃO E TMDb API (CATÁLOGOS)
+// NAVEGAÇÃO E TMDb API
 // ==========================================
 const CATEGORIAS_CONFIG = [
     { id: 'popular-movies', title: '🎬 Filmes Populares', endpoint: '/movie/popular' },
@@ -134,11 +126,7 @@ async function fetchTMDB(endpoint) {
         const data = await res.json();
         return data.results || [];
     } catch (e) {
-        console.warn("API Falhou. A carregar Dados de Reserva.");
-        return [
-            { id: 1, title: 'Inception', poster_path: null, overview: 'Ação e Ficção Científica.' },
-            { id: 2, title: 'Neon City', poster_path: null, overview: 'Futuro Distópico.' }
-        ];
+        return [{ id: 1, title: 'Inception', poster_path: null, overview: 'Ação e Ficção Científica.' }];
     }
 }
 
@@ -149,7 +137,7 @@ async function carregarInicio() {
     
     const container = document.getElementById('categories-container');
     container.style.display = 'block';
-    container.innerHTML = ''; // Limpar para recarregar
+    container.innerHTML = '';
 
     const topMovies = await fetchTMDB('/movie/popular');
     if (topMovies.length > 0) configurarHeroBanner(topMovies[0]);
@@ -208,9 +196,7 @@ function criarCardHTML(item) {
             </button>
             <div onclick="iniciarFilmeSimulado('${idStr}', '${title}', '${imgUrl}')">
                 <img src="${imgUrl}" alt="${title}" loading="lazy">
-                <div class="card-info">
-                    <span class="card-title">${title}</span>
-                </div>
+                <div class="card-info"><span class="card-title">${title}</span></div>
             </div>
         </div>
     `;
@@ -228,7 +214,6 @@ async function pesquisarTitulos(e) {
 
     clearTimeout(debounceSearchTimer);
 
-    // Se o texto for pequeno, volta ao ecrã inicial
     if (query.length < 2) {
         searchSection.style.display = 'none';
         categoriesContainer.style.display = 'block';
@@ -253,17 +238,15 @@ async function pesquisarTitulos(e) {
             if (item.poster_path) cardsHTML += criarCardHTML(item);
         });
         searchRow.innerHTML = cardsHTML;
-    }, 400); // 400ms delay para evitar muitas chamadas à API
+    }, 400); 
 }
 
 async function filtrarCategoria(categoria, element, event) {
     if(event) event.preventDefault();
     
-    // Atualizar UI Navbar
     document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
 
-    // Esconder outras secções
     document.getElementById('search-results-section').style.display = 'none';
     document.getElementById('watchlist-section').style.display = 'none';
     
@@ -309,9 +292,7 @@ async function toggleMinhaLista(movieData) {
             showToast("Removido da Lista");
         } else {
             await itemRef.set({
-                id: movieIdStr,
-                title: movieData.title,
-                coverImage: movieData.coverImage,
+                id: movieIdStr, title: movieData.title, coverImage: movieData.coverImage,
                 addedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             minhaListaIDs.add(movieIdStr);
@@ -319,8 +300,6 @@ async function toggleMinhaLista(movieData) {
         }
 
         atualizarBotoesWatchlist();
-        
-        // Se a secção da lista estiver visível, atualiza-a em tempo real
         if (document.getElementById('watchlist-section').style.display === 'block') {
             carregarSecaoMinhaLista(user.uid);
         }
@@ -335,9 +314,7 @@ async function carregarWatchlistIDs(userId) {
         minhaListaIDs.clear();
         snapshot.forEach(doc => minhaListaIDs.add(doc.id));
         atualizarBotoesWatchlist();
-    } catch (e) {
-        console.error("Erro a ler watchlist.");
-    }
+    } catch (e) { }
 }
 
 function atualizarBotoesWatchlist() {
@@ -354,7 +331,6 @@ function atualizarBotoesWatchlist() {
 
 async function mostrarMinhaLista(element, event) {
     if(event) event.preventDefault();
-    
     document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
     if (element) element.classList.add('active');
 
@@ -438,27 +414,35 @@ function atualizarUIPerfil(nome, photoUrl) {
 }
 
 // ==========================================
-// PLAYER DE VÍDEO & CONTINUAR A VER
+// PLAYER DE VÍDEO MEGAEMBEDAPI & HISTÓRICO
 // ==========================================
-async function guardarProgressoFirebase(userId, movieData, currentTime, duration) {
-    if (!userId || !movieData || isNaN(duration) || duration === 0) return;
-    if (currentTime - ultimaGravacao < INTERVALO_GRAVACAO && currentTime !== duration) return;
+async function iniciarFilmeSimulado(movieId, title = 'Filme', coverImage = '') {
+    const container = document.getElementById('video-container');
+    const iframe = document.getElementById('mega-player-iframe');
+    const user = auth.currentUser;
 
-    try {
-        const movieRef = db.collection('users').doc(userId).collection('continueWatching').doc(String(movieData.id));
-        const progress = (currentTime / duration) * 100;
-        
-        if (progress > 95) {
-            await movieRef.delete();
-            return;
+    // Constrói o link com a MegaEmbedAPI
+    iframe.src = `https://megaembedapi.site/embed/${movieId}`;
+    container.style.display = 'flex';
+
+    // Salva no "Histórico (Vistos Recentemente)"
+    if (user) {
+        try {
+            const movieRef = db.collection('users').doc(user.uid).collection('continueWatching').doc(String(movieId));
+            await movieRef.set({
+                movieId: String(movieId),
+                title: title,
+                coverImage: coverImage,
+                progress: 100, // Marcamos como 100% no iframe
+                lastWatched: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            
+            // Recarrega o carrossel do histórico
+            carregarFilaContinueAVer(user.uid);
+        } catch (e) {
+            console.log("Erro ao salvar no histórico");
         }
-
-        await movieRef.set({
-            movieId: String(movieData.id), title: movieData.title, coverImage: movieData.coverImage,
-            currentTime: currentTime, duration: duration, progress: progress, lastWatched: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        ultimaGravacao = currentTime;
-    } catch (e) { /* silent fail */ }
+    }
 }
 
 async function carregarFilaContinueAVer(userId) {
@@ -482,7 +466,7 @@ async function carregarFilaContinueAVer(userId) {
                 <div class="movie-card" tabindex="0" onclick="iniciarFilmeSimulado('${movie.movieId}', '${titleEscaped}', '${movie.coverImage}')">
                     <img src="${movie.coverImage}" alt="${movie.title}">
                     <div class="card-info"><span class="card-title">${movie.title}</span></div>
-                    <div class="progress-bar-container"><div class="progress-bar" style="width: ${Math.min(movie.progress, 100)}%;"></div></div>
+                    <div class="progress-bar-container"><div class="progress-bar" style="width: 100%;"></div></div>
                 </div>
             `;
         });
@@ -492,54 +476,11 @@ async function carregarFilaContinueAVer(userId) {
     }
 }
 
-async function iniciarFilmeSimulado(movieId, title = 'Filme', coverImage = '') {
-    const container = document.getElementById('video-container');
-    const player = document.getElementById('meu-player-video');
-    const user = auth.currentUser;
-
-    filmeAtualInfo = { id: String(movieId), title: title, coverImage: coverImage };
-    container.style.display = 'flex';
-    let tempoSalvo = 0;
-
-    if (user) {
-        try {
-            const doc = await db.collection('users').doc(user.uid).collection('continueWatching').doc(String(movieId)).get();
-            if (doc.exists && doc.data().currentTime > 0) tempoSalvo = doc.data().currentTime;
-        } catch (e) { /* ignore */ }
-    }
-
-    const setTime = () => {
-        if (tempoSalvo > 0 && tempoSalvo < player.duration) player.currentTime = tempoSalvo;
-        player.play().catch(() => console.log("Bloqueio de auto-play."));
-        player.removeEventListener('loadedmetadata', setTime);
-    };
-
-    if (player.readyState >= 1) setTime();
-    else player.addEventListener('loadedmetadata', setTime);
-}
-
-const videoEl = document.getElementById('meu-player-video');
-if (videoEl) {
-    videoEl.addEventListener('timeupdate', function() {
-        if (auth.currentUser && filmeAtualInfo) guardarProgressoFirebase(auth.currentUser.uid, filmeAtualInfo, this.currentTime, this.duration);
-    });
-    videoEl.addEventListener('pause', function() {
-        if (auth.currentUser && filmeAtualInfo) {
-            ultimaGravacao = 0;
-            guardarProgressoFirebase(auth.currentUser.uid, filmeAtualInfo, this.currentTime, this.duration);
-        }
-    });
-}
-
 function fecharPlayer() {
     const container = document.getElementById('video-container');
-    const player = document.getElementById('meu-player-video');
+    const iframe = document.getElementById('mega-player-iframe');
     
-    // Forçar pausa e remoção do SRC para garantir que a reprodução/áudio para imediatamente
-    if (player) {
-        player.pause();
-    }
-    if (container) container.style.display = 'none';
-
-    if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
+    // Esvazia o src do Iframe para parar imediatamente a reprodução / som do filme
+    iframe.src = ''; 
+    container.style.display = 'none';
 }

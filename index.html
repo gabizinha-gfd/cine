@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#050505">
-    <title>CineNet</title>
+    <title>CineNet | Streaming Premium</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -84,7 +84,7 @@
             </section>
 
             <section class="section-container" id="continue-watching-section" style="display: none;">
-                <h2 class="section-title">Continuar a Ver</h2>
+                <h2 class="section-title">Vistos Recentemente</h2>
                 <div class="movie-row" id="continue-watching-row"></div>
             </section>
 
@@ -129,9 +129,7 @@
 
     <div id="video-container" class="video-modal" style="display: none;">
         <button class="close-video-btn" onclick="fecharPlayer()" title="Sair do Player">✕ Voltar</button>
-        <video id="meu-player-video" controls poster="https://via.placeholder.com/1280x720/050505/ffffff?text=A+Carregar...">
-            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
-        </video>
+        <iframe id="mega-player-iframe" src="" allowfullscreen allow="autoplay; fullscreen" frameborder="0"></iframe>
     </div>
 
     <div id="toast-container"></div>
