@@ -24,10 +24,11 @@ let minhaListaIDs = new Set();
 let debounceSearchTimer;
 let isLoginMode = true;
 let selectedPlan = "";
-let currentUserData = null; // Armazena dados do plano localmente para agilidade
+let selectedPrice = 0;
+let currentUserData = null; 
 
 // ==========================================
-// GESTOR DE ECRÃS E UI
+// UI & GESTÃO DE ECRÃS
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -43,9 +44,7 @@ window.addEventListener('scroll', () => {
     if(nav) nav.classList.toggle('scrolled', window.scrollY > 10);
 });
 
-function lockScroll(lock) {
-    document.body.classList.toggle('no-scroll', lock);
-}
+function lockScroll(lock) { document.body.classList.toggle('no-scroll', lock); }
 
 function resetViews() {
     ['hero-banner', 'search-results-section', 'watchlist-section', 'continue-watching-section', 'categories-container']
@@ -64,7 +63,7 @@ function setActiveNav(navId) {
 }
 
 // ==========================================
-// AUTENTICAÇÃO E LÓGICA DE PLANOS
+// AUTENTICAÇÃO E CONTROLE DE ASSINATURA
 // ==========================================
 function toggleAuthMode(e) {
     if (e) e.preventDefault();
@@ -91,12 +90,8 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
             await userCred.user.updateProfile({ displayName: "Usuário CineNet" });
-            
-            // Regista com status inicial (sem plano)
             await db.collection('users').doc(userCred.user.uid).set({ 
-                hasActivePlan: false, 
-                planType: null,
-                freeViewsLeft: 0
+                hasActivePlan: false, planType: null, freeViewsLeft: 0
             }, { merge: true });
         }
     } catch (error) {
@@ -106,17 +101,13 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 });
 
 function fazerLogout() { 
-    auth.signOut().then(() => {
-        lockScroll(false);
-        window.location.reload();
-    }); 
+    auth.signOut().then(() => { lockScroll(false); window.location.reload(); }); 
 }
 
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         document.getElementById('auth-screen').style.display = 'none';
         
-        // Listener contínuo do utilizador
         db.collection('users').doc(user.uid).onSnapshot(async (doc) => {
             currentUserData = doc.data() || {};
             
@@ -124,7 +115,6 @@ auth.onAuthStateChanged(async (user) => {
             const txtLimit = document.getElementById('user-free-limit-txt');
 
             if (currentUserData.hasActivePlan === true) {
-                // Tem plano ativo -> Mostra App
                 document.getElementById('subscription-screen').style.display = 'none';
                 document.getElementById('app-screen').style.display = 'block';
                 
@@ -135,28 +125,27 @@ auth.onAuthStateChanged(async (user) => {
                 if(planBadge) planBadge.innerText = currentUserData.planType;
 
                 if(currentUserData.planType === 'Grátis') {
-                    btnUpgrade.style.display = 'block';
-                    txtLimit.style.display = 'block';
-                    txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft} filmes/séries`;
+                    if(btnUpgrade) btnUpgrade.style.display = 'block';
+                    if(txtLimit) {
+                        txtLimit.style.display = 'block';
+                        txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft} visualizações`;
+                    }
                 } else {
-                    btnUpgrade.style.display = 'none';
-                    txtLimit.style.display = 'none';
+                    if(btnUpgrade) btnUpgrade.style.display = 'none';
+                    if(txtLimit) txtLimit.style.display = 'none';
                 }
 
                 await carregarWatchlistIDs(user.uid);
-                
-                // Só carrega a home se a secção de container estiver vazia
                 if(document.getElementById('categories-container').innerHTML === '') {
                     carregarAba('inicio');
                 }
             } else {
-                // Não tem plano -> Mostra Ecrã de Planos
                 document.getElementById('app-screen').style.display = 'none';
                 document.getElementById('subscription-screen').style.display = 'flex';
-                document.getElementById('btn-cancel-upgrade').style.display = 'none'; // Impede saída sem escolher
+                const btnCancel = document.getElementById('btn-cancel-upgrade');
+                if(btnCancel) btnCancel.style.display = 'none'; 
             }
         });
-
     } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
@@ -171,13 +160,19 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 // ==========================================
-// ESCOLHA DE PLANO E PAGAMENTO
+// INTEGRAÇÃO MERCADO PAGO BRICKS (API)
 // ==========================================
-function escolherPlano(planoNome, preco) {
+// Substitua "TEST-..." pela sua Public Key real do Mercado Pago
+const mp = new MercadoPago('TEST-SUA-PUBLIC-KEY-AQUI', { locale: 'pt-BR' });
+let cardPaymentBrickController;
+
+function escolherPlano(planoNome, precoStr) {
     if (planoNome === 'Grátis') {
         processarPlanoGratis();
     } else {
-        abrirPagamento(planoNome, preco);
+        // Converte string "18.90" para float 18.90
+        selectedPrice = parseFloat(precoStr);
+        abrirPagamento(planoNome, selectedPrice);
     }
 }
 
@@ -187,24 +182,66 @@ async function processarPlanoGratis() {
         showToast("Ativando Plano Grátis...");
         try {
             await db.collection('users').doc(user.uid).set({
-                hasActivePlan: true,
-                planType: 'Grátis',
-                freeViewsLeft: 3, // Dá 3 visualizações
+                hasActivePlan: true, planType: 'Grátis', freeViewsLeft: 3,
                 subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             showToast("Bem-vindo! Você ganhou 3 visualizações gratuitas.");
-        } catch(e) {
-            showToast("Erro ao processar plano grátis.");
-        }
+        } catch(e) {}
     }
 }
 
-function abrirPagamento(planoNome, preco) {
+async function abrirPagamento(planoNome, precoFloat) {
     selectedPlan = planoNome;
     document.getElementById('selected-plan-name').innerText = planoNome;
-    document.getElementById('selected-plan-price').innerText = preco;
+    document.getElementById('selected-plan-price').innerText = precoFloat.toFixed(2).replace('.', ',');
     document.getElementById('payment-modal').style.display = 'flex';
     lockScroll(true);
+
+    // INICIALIZA MERCADO PAGO BRICKS 
+    if (cardPaymentBrickController) cardPaymentBrickController.unmount();
+    
+    const settings = {
+        initialization: { amount: precoFloat },
+        customization: {
+            visual: { style: { theme: 'dark' } }, // Integra perfeito com o site escuro
+            paymentMethods: { maxInstallments: 1 } // Assinatura paga de uma vez
+        },
+        callbacks: {
+            onReady: () => { /* Brick carregado */ },
+            onSubmit: (cardFormData) => {
+                // Aqui o cartão já foi validado pelo MP e virou um Token.
+                // Na vida real, você manda `cardFormData` pro seu Backend Node.js
+                return new Promise((resolve, reject) => {
+                    showToast("Processando pagamento de forma segura...");
+                    
+                    /* === SIMULAÇÃO DE BACKEND === */
+                    // Como não tem Node.js no ar ainda, aprovamos direto para testes:
+                    setTimeout(async () => {
+                        try {
+                            const user = auth.currentUser;
+                            await db.collection('users').doc(user.uid).set({
+                                hasActivePlan: true, planType: selectedPlan, freeViewsLeft: 9999,
+                                subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
+                            }, { merge: true });
+                            
+                            fecharPagamento();
+                            showToast(`Sucesso! Pagamento Aprovado. Bem-vindo ao plano ${selectedPlan}.`);
+                            resolve();
+                        } catch(e) {
+                            showToast("Erro no banco de dados.");
+                            reject();
+                        }
+                    }, 2000);
+                });
+            },
+            onError: (error) => {
+                showToast("Erro no formulário de pagamento.");
+                console.error(error);
+            }
+        }
+    };
+    const bricksBuilder = mp.bricks();
+    cardPaymentBrickController = await bricksBuilder.create('cardPayment', 'payment-brick-container', settings);
 }
 
 function fecharPagamento() {
@@ -212,36 +249,6 @@ function fecharPagamento() {
     lockScroll(false);
 }
 
-function processarAssinaturaPagamento(e) {
-    e.preventDefault();
-    const btn = document.getElementById('payment-submit-btn');
-    btn.innerText = 'Processando...';
-    btn.disabled = true;
-
-    setTimeout(async () => {
-        try {
-            const user = auth.currentUser;
-            if(user) {
-                // Ativa plano pago (ilimitado)
-                await db.collection('users').doc(user.uid).set({
-                    hasActivePlan: true,
-                    planType: selectedPlan,
-                    freeViewsLeft: 9999, // Ilimitado para simplificar a lógica
-                    subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-
-                fecharPagamento();
-                showToast(`Sucesso! Bem-vindo ao CineNet ${selectedPlan}.`);
-            }
-        } catch(error) {
-            btn.innerText = 'Concluir Assinatura';
-            btn.disabled = false;
-            showToast('Erro ao processar cartão.');
-        }
-    }, 1500);
-}
-
-// Upgrade a partir do Perfil
 function abrirTelaPlanos() {
     fecharModalPerfil();
     document.getElementById('app-screen').style.display = 'none';
@@ -255,7 +262,7 @@ function cancelarUpgrade() {
 }
 
 // ==========================================
-// PERFIL
+// PERFIL & CHAT IA
 // ==========================================
 function abrirModalPerfil() {
     const user = auth.currentUser;
@@ -282,9 +289,6 @@ async function guardarPerfil(e) {
     }
 }
 
-// ==========================================
-// CINEBOT E TMDB
-// ==========================================
 function abrirChat() { document.getElementById('chat-modal').style.display = 'flex'; lockScroll(true); }
 function fecharChat() { document.getElementById('chat-modal').style.display = 'none'; lockScroll(false); }
 
@@ -329,6 +333,9 @@ async function enviarMensagemBot(txt) {
     } catch(e) {}
 }
 
+// ==========================================
+// GESTÃO DE ABAS E TMDB
+// ==========================================
 async function fetchTMDB(endpoint) {
     try {
         const s = endpoint.includes('?') ? '&' : '?';
@@ -339,12 +346,8 @@ async function fetchTMDB(endpoint) {
     } catch { return []; }
 }
 
-// ==========================================
-// GESTÃO DE ABAS ISOLADAS
-// ==========================================
 async function carregarAba(abaId, event) {
     if(event) event.preventDefault();
-    
     resetViews();
     setActiveNav('nav-' + abaId);
     
@@ -354,7 +357,6 @@ async function carregarAba(abaId, event) {
     const container = document.getElementById('categories-container');
     container.style.display = 'block';
     container.innerHTML = '<div style="padding: 100px 0; text-align: center; color: #aaa;">Carregando catálogo...</div>';
-    
     document.getElementById('hero-banner').style.display = 'flex';
 
     try {
@@ -369,7 +371,7 @@ async function carregarAba(abaId, event) {
         } 
         else if (abaId === 'movie') {
             document.getElementById('continue-watching-section').style.display = 'none';
-            await carregarHeroTop('/discover/movie?with_genres=28', 'movie'); // Action
+            await carregarHeroTop('/discover/movie?with_genres=28', 'movie'); 
             await renderizarListas([
                 { t: 'Ação e Aventura', e: '/discover/movie?with_genres=28', type: 'movie' },
                 { t: 'Comédia', e: '/discover/movie?with_genres=35', type: 'movie' },
@@ -393,9 +395,7 @@ async function carregarAba(abaId, event) {
                 { t: 'Ação Shonen', e: '/discover/tv?with_genres=16,10759&with_original_language=ja', type: 'tv' }
             ]);
         }
-    } catch(e) {
-        container.innerHTML = '<div style="padding: 50px; text-align: center; color: var(--primary);">Erro de conexão com o catálogo.</div>';
-    }
+    } catch(e) { container.innerHTML = '<div style="padding: 50px; text-align: center; color: var(--primary);">Erro de conexão.</div>'; }
 }
 
 function carregarInicio() { carregarAba('inicio'); }
@@ -470,8 +470,7 @@ async function pesquisarTitulos(e) {
     if (q.length < 2) { carregarAba('inicio'); return; }
 
     debounceSearchTimer = setTimeout(async () => {
-        resetViews(); 
-        setActiveNav(null);
+        resetViews(); setActiveNav(null);
         document.getElementById('search-results-section').style.display = 'block';
         document.getElementById('search-results-title').innerText = `Resultados para: "${q}"`;
         
@@ -480,10 +479,7 @@ async function pesquisarTitulos(e) {
             const row = document.getElementById('search-results-row');
             row.innerHTML = '';
             
-            if(res.length === 0) {
-                row.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">Nenhum título encontrado.</p>';
-                return;
-            }
+            if(res.length === 0) { row.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">Nenhum título encontrado.</p>'; return; }
             res.forEach(i => { if (i.poster_path) row.innerHTML += criarCardHTML(i, i.media_type || 'movie'); });
         } catch(e) {}
     }, 400);
@@ -527,8 +523,7 @@ async function carregarWatchlistIDs(uid) {
 
 async function mostrarMinhaLista(e) {
     if (e) e.preventDefault();
-    resetViews(); 
-    setActiveNav('nav-watchlist');
+    resetViews(); setActiveNav('nav-watchlist');
     if (auth.currentUser) carregarSecaoMinhaLista(auth.currentUser.uid);
 }
 
@@ -539,8 +534,7 @@ async function carregarSecaoMinhaLista(uid) {
     
     try {
         const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
-        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia. Adicione os seus favoritos!</div>'; return; }
-        
+        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia.</div>'; return; }
         r.innerHTML = '';
         snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
     } catch (e) {}
@@ -575,7 +569,6 @@ async function podeAssistir() {
     if (currentUserData.planType === 'Grátis') {
         if (currentUserData.freeViewsLeft > 0) {
             try {
-                // Desconta 1 visualização do utilizador grátis
                 await db.collection('users').doc(auth.currentUser.uid).update({
                     freeViewsLeft: firebase.firestore.FieldValue.increment(-1)
                 });
@@ -583,16 +576,12 @@ async function podeAssistir() {
                 return true;
             } catch(e) { return false; }
         } else {
-            // Sem visualizações - Bloqueia e abre Upgrades
-            showToast("Limite atingido! Faça upgrade para o Premium para continuar a assistir.");
-            fecharPlayer();
-            fecharModalEpisodios();
-            abrirTelaPlanos();
+            showToast("Limite atingido! Faça o Upgrade para continuar a assistir.");
+            fecharPlayer(); fecharModalEpisodios(); abrirTelaPlanos();
             return false;
         }
     }
-    // Planos Pagos -> Ilimitado
-    return true;
+    return true; // Pagos assistem sempre
 }
 
 async function assistirFilme(id, title, img) {
@@ -635,10 +624,7 @@ function abrirVideo(url, id, title, img) {
 function fecharPlayer() {
     const container = document.getElementById('video-container');
     const iframe = document.getElementById('mega-player-iframe');
-    
-    iframe.src = '';
-    container.style.display = 'none';
-    lockScroll(false);
+    iframe.src = ''; container.style.display = 'none'; lockScroll(false);
 
     try {
         if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
@@ -664,7 +650,7 @@ async function abrirModalSerie(id, title, img) {
         carregarEpisodios(id, 1, title, img);
         document.getElementById('episodes-modal').style.display = 'flex';
         lockScroll(true);
-    } catch (e) { showToast("Não foi possível carregar temporadas."); }
+    } catch (e) { showToast("Erro ao carregar temporadas."); }
 }
 
 async function carregarEpisodios(id, season, title, img) {
@@ -686,7 +672,4 @@ async function carregarEpisodios(id, season, title, img) {
     } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar episódios.</div>'; }
 }
 
-function fecharModalEpisodios() { 
-    document.getElementById('episodes-modal').style.display = 'none'; 
-    lockScroll(false);
-}
+function fecharModalEpisodios() { document.getElementById('episodes-modal').style.display = 'none'; lockScroll(false); }
