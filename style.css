@@ -1,3 +1,6 @@
+/* ==========================================
+   VARIÁVEIS E RESET
+   ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
@@ -21,7 +24,7 @@ body { background-color: var(--bg-color); color: var(--text-light); font-family:
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: translateY(0); } }
 
-/* AUTENTICAÇÃO E PLANOS */
+/* AUTENTICAÇÃO */
 .auth-container { position: fixed; inset: 0; background: linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.9) 100%), url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&q=80') center/cover; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; overflow-y: auto; }
 .auth-header { position: absolute; top: 0; left: 0; width: 100%; padding: 25px 5%; z-index: 10; }
 .auth-header .logo { font-size: 2.5rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: -1px; }
@@ -38,8 +41,9 @@ body { background-color: var(--bg-color); color: var(--text-light); font-family:
 .auth-switch { margin-top: 30px; color: var(--text-muted); font-size: 0.95rem; display: flex; justify-content: center; gap: 5px; }
 .auth-switch a { color: #fff; text-decoration: none; font-weight: 500; }
 
-.plans-wrapper { width: 100%; max-width: 1000px; padding: 100px 20px 40px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2;}
-.plans-grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%; margin-top: 20px; }
+/* PLANOS */
+.plans-wrapper { width: 100%; max-width: 1100px; padding: 100px 20px 40px; margin: auto; display: flex; flex-direction: column; justify-content: center; z-index: 2;}
+.plans-grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; width: 100%; margin-top: 20px; }
 .plan-card { background: rgba(30, 30, 30, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); padding: 30px 20px; text-align: center; position: relative; transition: 0.3s; display: flex; flex-direction: column; justify-content: space-between; }
 .plan-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.3); background: rgba(40, 40, 40, 0.95); }
 .plan-card h3 { font-size: 1.5rem; color: #fff; margin-bottom: 10px; }
@@ -48,6 +52,8 @@ body { background-color: var(--bg-color); color: var(--text-light); font-family:
 .plan-features { list-style: none; text-align: left; margin-bottom: 30px; font-size: 0.95rem; color: #ddd; line-height: 1.8; }
 .plan-card.popular { border-color: var(--primary); background: rgba(229, 9, 20, 0.08); }
 .plan-card.premium { background: linear-gradient(135deg, rgba(229, 9, 20, 0.15) 0%, rgba(10,10,10,0.9) 100%); border-color: #ff3b30; }
+.plan-card.free-plan { opacity: 0.9; }
+.plan-card.free-plan:hover { opacity: 1; border-color: #aaa; }
 .plan-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; text-transform: uppercase; }
 .plan-btn { width: 100%; padding: 14px; font-size: 1rem; font-weight: 600; border-radius: var(--radius-sm); border: none; background: var(--primary); color: #fff; cursor: pointer; transition: 0.2s; }
 
@@ -161,4 +167,5 @@ body { background-color: var(--bg-color); color: var(--text-light); font-family:
     .chat-container { width: 100%; height: 100%; bottom: 0; right: 0; border-radius: 0; max-width: 100%; z-index: 10000; border: none; }
     .auth-box { padding: 40px 25px; }
     .modal-card { padding: 25px 20px; width: 95%; }
+    .plans-wrapper { padding: 60px 15px 40px; }
 }

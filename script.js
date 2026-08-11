@@ -24,6 +24,7 @@ let minhaListaIDs = new Set();
 let debounceSearchTimer;
 let isLoginMode = true;
 let selectedPlan = "";
+let currentUserData = null; // Armazena dados do plano localmente para agilidade
 
 // ==========================================
 // GESTOR DE ECRÃS E UI
@@ -34,7 +35,7 @@ function showToast(msg) {
     const t = document.createElement('div');
     t.className = 'toast'; t.innerText = msg;
     c.appendChild(t);
-    setTimeout(() => t.remove(), 3500);
+    setTimeout(() => t.remove(), 4000);
 }
 
 window.addEventListener('scroll', () => {
@@ -63,15 +64,15 @@ function setActiveNav(navId) {
 }
 
 // ==========================================
-// AUTENTICAÇÃO E ASSINATURA DE PLANO
+// AUTENTICAÇÃO E LÓGICA DE PLANOS
 // ==========================================
 function toggleAuthMode(e) {
     if (e) e.preventDefault();
     isLoginMode = !isLoginMode;
     document.getElementById('auth-title').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
-    document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Registar';
+    document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Assinar agora';
     document.getElementById('auth-switch-text').innerText = isLoginMode ? 'Novo por aqui?' : 'Já tem conta?';
-    document.getElementById('auth-switch-link').innerText = isLoginMode ? 'Registe-se agora.' : 'Entre agora.';
+    document.getElementById('auth-switch-link').innerText = isLoginMode ? 'Assine agora.' : 'Entre agora.';
     document.getElementById('auth-error').innerText = '';
 }
 
@@ -82,18 +83,24 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     const btn = document.getElementById('auth-submit-btn');
     const err = document.getElementById('auth-error');
     
-    btn.disabled = true; err.innerText = 'A processar...';
+    btn.disabled = true; err.innerText = 'Verificando dados...';
 
     try {
         if (isLoginMode) {
             await auth.signInWithEmailAndPassword(email, password);
         } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
-            await userCred.user.updateProfile({ displayName: "Utilizador CineNet" });
-            await db.collection('users').doc(userCred.user.uid).set({ hasActivePlan: false, planType: null }, { merge: true });
+            await userCred.user.updateProfile({ displayName: "Usuário CineNet" });
+            
+            // Regista com status inicial (sem plano)
+            await db.collection('users').doc(userCred.user.uid).set({ 
+                hasActivePlan: false, 
+                planType: null,
+                freeViewsLeft: 0
+            }, { merge: true });
         }
     } catch (error) {
-        err.innerText = 'Dados incorretos. Verifique e tente novamente.';
+        err.innerText = 'Dados incorretos. Verifique o email/senha e tente de novo.';
         btn.disabled = false;
     }
 });
@@ -109,11 +116,15 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         document.getElementById('auth-screen').style.display = 'none';
         
-        try {
-            const docRef = await db.collection('users').doc(user.uid).get();
-            const userData = docRef.data() || {};
+        // Listener contínuo do utilizador
+        db.collection('users').doc(user.uid).onSnapshot(async (doc) => {
+            currentUserData = doc.data() || {};
             
-            if (userData.hasActivePlan) {
+            const btnUpgrade = document.getElementById('btn-upgrade-plan');
+            const txtLimit = document.getElementById('user-free-limit-txt');
+
+            if (currentUserData.hasActivePlan === true) {
+                // Tem plano ativo -> Mostra App
                 document.getElementById('subscription-screen').style.display = 'none';
                 document.getElementById('app-screen').style.display = 'block';
                 
@@ -121,20 +132,37 @@ auth.onAuthStateChanged(async (user) => {
                 if (avatar) avatar.src = user.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
                 
                 const planBadge = document.getElementById('user-plan-badge');
-                if(planBadge) planBadge.innerText = userData.planType || 'Premium';
+                if(planBadge) planBadge.innerText = currentUserData.planType;
+
+                if(currentUserData.planType === 'Grátis') {
+                    btnUpgrade.style.display = 'block';
+                    txtLimit.style.display = 'block';
+                    txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft} filmes/séries`;
+                } else {
+                    btnUpgrade.style.display = 'none';
+                    txtLimit.style.display = 'none';
+                }
 
                 await carregarWatchlistIDs(user.uid);
-                carregarAba('inicio');
+                
+                // Só carrega a home se a secção de container estiver vazia
+                if(document.getElementById('categories-container').innerHTML === '') {
+                    carregarAba('inicio');
+                }
             } else {
+                // Não tem plano -> Mostra Ecrã de Planos
                 document.getElementById('app-screen').style.display = 'none';
                 document.getElementById('subscription-screen').style.display = 'flex';
+                document.getElementById('btn-cancel-upgrade').style.display = 'none'; // Impede saída sem escolher
             }
-        } catch(e) {}
+        });
+
     } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'none';
         minhaListaIDs.clear();
+        currentUserData = null;
         
         const btn = document.getElementById('auth-submit-btn');
         if(btn) btn.disabled = false;
@@ -142,7 +170,35 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
-// SISTEMA DE PAGAMENTO SIMULADO
+// ==========================================
+// ESCOLHA DE PLANO E PAGAMENTO
+// ==========================================
+function escolherPlano(planoNome, preco) {
+    if (planoNome === 'Grátis') {
+        processarPlanoGratis();
+    } else {
+        abrirPagamento(planoNome, preco);
+    }
+}
+
+async function processarPlanoGratis() {
+    const user = auth.currentUser;
+    if(user) {
+        showToast("Ativando Plano Grátis...");
+        try {
+            await db.collection('users').doc(user.uid).set({
+                hasActivePlan: true,
+                planType: 'Grátis',
+                freeViewsLeft: 3, // Dá 3 visualizações
+                subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            showToast("Bem-vindo! Você ganhou 3 visualizações gratuitas.");
+        } catch(e) {
+            showToast("Erro ao processar plano grátis.");
+        }
+    }
+}
+
 function abrirPagamento(planoNome, preco) {
     selectedPlan = planoNome;
     document.getElementById('selected-plan-name').innerText = planoNome;
@@ -156,37 +212,51 @@ function fecharPagamento() {
     lockScroll(false);
 }
 
-function processarAssinatura(e) {
+function processarAssinaturaPagamento(e) {
     e.preventDefault();
     const btn = document.getElementById('payment-submit-btn');
-    btn.innerText = 'A processar pagamento...';
+    btn.innerText = 'Processando...';
     btn.disabled = true;
 
     setTimeout(async () => {
         try {
             const user = auth.currentUser;
             if(user) {
+                // Ativa plano pago (ilimitado)
                 await db.collection('users').doc(user.uid).set({
                     hasActivePlan: true,
                     planType: selectedPlan,
+                    freeViewsLeft: 9999, // Ilimitado para simplificar a lógica
                     subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
 
                 fecharPagamento();
-                showToast(`Bem-vindo ao CineNet ${selectedPlan}!`);
-                
-                document.getElementById('subscription-screen').style.display = 'none';
-                document.getElementById('app-screen').style.display = 'block';
-                carregarAba('inicio');
+                showToast(`Sucesso! Bem-vindo ao CineNet ${selectedPlan}.`);
             }
         } catch(error) {
             btn.innerText = 'Concluir Assinatura';
             btn.disabled = false;
-            showToast('Erro ao assinar.');
+            showToast('Erro ao processar cartão.');
         }
     }, 1500);
 }
 
+// Upgrade a partir do Perfil
+function abrirTelaPlanos() {
+    fecharModalPerfil();
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('subscription-screen').style.display = 'flex';
+    document.getElementById('btn-cancel-upgrade').style.display = 'block';
+}
+
+function cancelarUpgrade() {
+    document.getElementById('subscription-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+}
+
+// ==========================================
+// PERFIL
+// ==========================================
 function abrirModalPerfil() {
     const user = auth.currentUser;
     if (user) {
@@ -208,12 +278,12 @@ async function guardarPerfil(e) {
         const avatar = document.getElementById('user-avatar-img');
         if(avatar) avatar.src = photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
         fecharModalPerfil();
-        showToast('Perfil atualizado com sucesso.');
+        showToast('Perfil atualizado!');
     }
 }
 
 // ==========================================
-// CINEBOT (CHAT IA)
+// CINEBOT E TMDB
 // ==========================================
 function abrirChat() { document.getElementById('chat-modal').style.display = 'flex'; lockScroll(true); }
 function fecharChat() { document.getElementById('chat-modal').style.display = 'none'; lockScroll(false); }
@@ -249,30 +319,29 @@ async function enviarMensagemBot(txt) {
             const item = validData[Math.floor(Math.random() * validData.length)];
             const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
             const title = item.title || item.name;
-            const html = `Recomendo este título para si:
+            const html = `Veja esta recomendação:
                 <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                     <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
-                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
+                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir</p></div>
                 </div>`;
             setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
         }
     } catch(e) {}
 }
 
-// ==========================================
-// GESTÃO DE ABAS ISOLADAS (NAVEGAÇÃO API)
-// ==========================================
 async function fetchTMDB(endpoint) {
     try {
         const s = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${TMDB_BASE_URL}${endpoint}${s}api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const res = await fetch(`${TMDB_BASE_URL}${endpoint}${s}api_key=${TMDB_API_KEY}&language=pt-BR`);
         if (!res.ok) throw new Error("Erro API");
         const json = await res.json();
         return json.results || [];
     } catch { return []; }
 }
 
-// O ISOLAMENTO DE ABAS
+// ==========================================
+// GESTÃO DE ABAS ISOLADAS
+// ==========================================
 async function carregarAba(abaId, event) {
     if(event) event.preventDefault();
     
@@ -284,48 +353,51 @@ async function carregarAba(abaId, event) {
 
     const container = document.getElementById('categories-container');
     container.style.display = 'block';
-    container.innerHTML = '<div style="padding: 100px 0; text-align: center; color: #aaa;">A carregar catálogo...</div>';
+    container.innerHTML = '<div style="padding: 100px 0; text-align: center; color: #aaa;">Carregando catálogo...</div>';
     
     document.getElementById('hero-banner').style.display = 'flex';
 
-    if (abaId === 'inicio') {
-        await carregarHeroTop('/movie/popular', 'movie');
-        await renderizarListas([
-            { t: 'Filmes Populares', e: '/movie/popular', type: 'movie' },
-            { t: 'Séries Aclamadas', e: '/tv/popular', type: 'tv' },
-            { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' }
-        ]);
-        if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
-    } 
-    else if (abaId === 'movie') {
-        document.getElementById('continue-watching-section').style.display = 'none';
-        await carregarHeroTop('/discover/movie?with_genres=28', 'movie'); // Action Hero
-        await renderizarListas([
-            { t: 'Ação e Aventura', e: '/discover/movie?with_genres=28', type: 'movie' },
-            { t: 'Comédia', e: '/discover/movie?with_genres=35', type: 'movie' },
-            { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' }
-        ]);
-    } 
-    else if (abaId === 'tv') {
-        document.getElementById('continue-watching-section').style.display = 'none';
-        await carregarHeroTop('/tv/top_rated', 'tv');
-        await renderizarListas([
-            { t: 'Séries Mais Vistas', e: '/tv/popular', type: 'tv' },
-            { t: 'Drama', e: '/discover/tv?with_genres=18', type: 'tv' },
-            { t: 'Mistério e Sci-Fi', e: '/discover/tv?with_genres=10765', type: 'tv' }
-        ]);
-    } 
-    else if (abaId === 'anime') {
-        document.getElementById('continue-watching-section').style.display = 'none';
-        await carregarHeroTop('/discover/tv?with_genres=16&with_original_language=ja', 'tv');
-        await renderizarListas([
-            { t: 'Animes Populares', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' },
-            { t: 'Animes de Ação', e: '/discover/tv?with_genres=16,10759&with_original_language=ja', type: 'tv' }
-        ]);
+    try {
+        if (abaId === 'inicio') {
+            await carregarHeroTop('/movie/popular', 'movie');
+            await renderizarListas([
+                { t: 'Filmes Populares', e: '/movie/popular', type: 'movie' },
+                { t: 'Séries Aclamadas', e: '/tv/popular', type: 'tv' },
+                { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' }
+            ]);
+            if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
+        } 
+        else if (abaId === 'movie') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/discover/movie?with_genres=28', 'movie'); // Action
+            await renderizarListas([
+                { t: 'Ação e Aventura', e: '/discover/movie?with_genres=28', type: 'movie' },
+                { t: 'Comédia', e: '/discover/movie?with_genres=35', type: 'movie' },
+                { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' }
+            ]);
+        } 
+        else if (abaId === 'tv') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/tv/top_rated', 'tv');
+            await renderizarListas([
+                { t: 'Séries Mais Vistas', e: '/tv/popular', type: 'tv' },
+                { t: 'Drama', e: '/discover/tv?with_genres=18', type: 'tv' },
+                { t: 'Mistério e Sci-Fi', e: '/discover/tv?with_genres=10765', type: 'tv' }
+            ]);
+        } 
+        else if (abaId === 'anime') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/discover/tv?with_genres=16&with_original_language=ja', 'tv');
+            await renderizarListas([
+                { t: 'Animes Populares', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' },
+                { t: 'Ação Shonen', e: '/discover/tv?with_genres=16,10759&with_original_language=ja', type: 'tv' }
+            ]);
+        }
+    } catch(e) {
+        container.innerHTML = '<div style="padding: 50px; text-align: center; color: var(--primary);">Erro de conexão com o catálogo.</div>';
     }
 }
 
-// Atalho do carregar Inicio default
 function carregarInicio() { carregarAba('inicio'); }
 
 async function carregarHeroTop(endpoint, mediaType) {
@@ -355,7 +427,7 @@ function configurarHero(item, mediaType) {
 
     document.getElementById('hero-banner').style.backgroundImage = `url('${bg}')`;
     document.getElementById('hero-title').innerText = title;
-    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD na CineNet.';
+    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD.';
     
     document.getElementById('hero-play-btn').onclick = () => {
         if(mediaType === 'tv') abrirModalSerie(item.id, title, poster);
@@ -390,20 +462,16 @@ function criarCardHTML(item, type = 'movie') {
 }
 
 // ==========================================
-// PESQUISA GLOBAL
+// PESQUISA, LISTA E HISTÓRICO
 // ==========================================
 async function pesquisarTitulos(e) {
     const q = e.target.value.trim();
     clearTimeout(debounceSearchTimer);
-
-    if (q.length < 2) {
-        carregarAba('inicio');
-        return;
-    }
+    if (q.length < 2) { carregarAba('inicio'); return; }
 
     debounceSearchTimer = setTimeout(async () => {
         resetViews(); 
-        setActiveNav(null); // Remove marcação das abas
+        setActiveNav(null);
         document.getElementById('search-results-section').style.display = 'block';
         document.getElementById('search-results-title').innerText = `Resultados para: "${q}"`;
         
@@ -421,9 +489,6 @@ async function pesquisarTitulos(e) {
     }, 400);
 }
 
-// ==========================================
-// A MINHA LISTA E HISTÓRICO
-// ==========================================
 async function toggleMinhaLista(data) {
     const user = auth.currentUser;
     if (!user) return showToast("Faça login primeiro.");
@@ -449,9 +514,8 @@ async function toggleMinhaLista(data) {
                 ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Guardado` 
                 : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
         }
-
         if (document.getElementById('watchlist-section').style.display === 'block') carregarSecaoMinhaLista(user.uid);
-    } catch(e) {}
+    } catch(e) { }
 }
 
 async function carregarWatchlistIDs(uid) {
@@ -465,27 +529,21 @@ async function mostrarMinhaLista(e) {
     if (e) e.preventDefault();
     resetViews(); 
     setActiveNav('nav-watchlist');
-    
-    const searchInput = document.getElementById('search-input');
-    if(searchInput) searchInput.value = '';
-
     if (auth.currentUser) carregarSecaoMinhaLista(auth.currentUser.uid);
 }
 
 async function carregarSecaoMinhaLista(uid) {
     const s = document.getElementById('watchlist-section');
     const r = document.getElementById('watchlist-row');
-    s.style.display = 'block'; r.innerHTML = '<div style="grid-column: 1/-1; padding: 50px 0; color: #aaa;">A carregar...</div>';
+    s.style.display = 'block'; r.innerHTML = '<div style="grid-column: 1/-1; padding: 50px 0; color: #aaa;">Carregando...</div>';
     
     try {
         const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
-        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia. Explore e adicione títulos!</div>'; return; }
+        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia. Adicione os seus favoritos!</div>'; return; }
         
         r.innerHTML = '';
         snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
-    } catch (e) {
-        r.innerHTML = '<div style="grid-column: 1/-1; color: #E50914;">Erro ao carregar lista.</div>';
-    }
+    } catch (e) {}
 }
 
 async function carregarFilaContinueAVer(uid) {
@@ -493,8 +551,6 @@ async function carregarFilaContinueAVer(uid) {
     const r = document.getElementById('continue-watching-row');
     try {
         const snap = await db.collection('users').doc(uid).collection('continueWatching').orderBy('lastWatched','desc').limit(10).get();
-        
-        // Só mostra se a aba for Inicio
         if (snap.empty || document.getElementById('hero-banner').style.display === 'none') { s.style.display = 'none'; return; } 
 
         s.style.display = 'block'; r.innerHTML = '';
@@ -511,14 +567,42 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER & MODAL SÉRIES
+// PLAYER COM BARREIRA DE PLANO GRÁTIS
 // ==========================================
-function assistirFilme(id, title, img) {
-    abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
+async function podeAssistir() {
+    if (!currentUserData) return false;
+    
+    if (currentUserData.planType === 'Grátis') {
+        if (currentUserData.freeViewsLeft > 0) {
+            try {
+                // Desconta 1 visualização do utilizador grátis
+                await db.collection('users').doc(auth.currentUser.uid).update({
+                    freeViewsLeft: firebase.firestore.FieldValue.increment(-1)
+                });
+                showToast(`Filme iniciado. Restam ${currentUserData.freeViewsLeft - 1} de 3 títulos grátis.`);
+                return true;
+            } catch(e) { return false; }
+        } else {
+            // Sem visualizações - Bloqueia e abre Upgrades
+            showToast("Limite atingido! Faça upgrade para o Premium para continuar a assistir.");
+            fecharPlayer();
+            fecharModalEpisodios();
+            abrirTelaPlanos();
+            return false;
+        }
+    }
+    // Planos Pagos -> Ilimitado
+    return true;
 }
 
-function assistirEpisodio(id, s, e, title, img) {
-    abrirVideo(`https://mgeb.top/embed/${id}/${s}/${e}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, `${title} T${s}:E${e}`, img);
+async function assistirFilme(id, title, img) {
+    const block = await podeAssistir();
+    if(block) abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
+}
+
+async function assistirEpisodio(id, s, e, title, img) {
+    const block = await podeAssistir();
+    if(block) abrirVideo(`https://mgeb.top/embed/${id}/${s}/${e}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, `${title} T${s}:E${e}`, img);
 }
 
 function abrirVideo(url, id, title, img) {
@@ -532,26 +616,19 @@ function abrirVideo(url, id, title, img) {
     lockScroll(true);
 
     try {
-        if (container.requestFullscreen) {
-            container.requestFullscreen().catch(() => {});
-        } else if (container.webkitRequestFullscreen) {
-            container.webkitRequestFullscreen();
-        } else if (container.msRequestFullscreen) {
-            container.msRequestFullscreen();
-        } else if (container.mozRequestFullScreen) {
-            container.mozRequestFullScreen();
-        }
-        
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock('landscape').catch(() => {});
-        }
+        if (container.requestFullscreen) container.requestFullscreen().catch(()=>{});
+        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+        else if (container.msRequestFullscreen) container.msRequestFullscreen();
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
     } catch (e) { }
 
     const user = auth.currentUser;
     if (user) {
         db.collection('users').doc(user.uid).collection('continueWatching').doc(String(id)).set({
             movieId: String(id), title: title, coverImage: img, lastWatched: firebase.firestore.FieldValue.serverTimestamp()
-        }, {merge:true}).then(() => carregarFilaContinueAVer(user.uid)).catch(()=>{});
+        }, {merge:true}).then(() => {
+            if(document.getElementById('hero-banner').style.display !== 'none') carregarFilaContinueAVer(user.uid);
+        }).catch(()=>{});
     }
 }
 
@@ -564,10 +641,9 @@ function fecharPlayer() {
     lockScroll(false);
 
     try {
-        if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
             if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
             else if (document.msExitFullscreen) document.msExitFullscreen();
         }
         if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
@@ -577,7 +653,7 @@ function fecharPlayer() {
 async function abrirModalSerie(id, title, img) {
     document.getElementById('modal-tv-title').innerText = title;
     try {
-        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-BR`);
         if (!res.ok) throw new Error("Erro");
         const data = await res.json();
         const sel = document.getElementById('season-select'); sel.innerHTML = '';
@@ -588,23 +664,23 @@ async function abrirModalSerie(id, title, img) {
         carregarEpisodios(id, 1, title, img);
         document.getElementById('episodes-modal').style.display = 'flex';
         lockScroll(true);
-    } catch (e) { showToast("Não foi possível carregar as temporadas."); }
+    } catch (e) { showToast("Não foi possível carregar temporadas."); }
 }
 
 async function carregarEpisodios(id, season, title, img) {
-    const list = document.getElementById('episodes-list'); list.innerHTML = '<div style="padding: 20px 0; color: #aaa;">A carregar...</div>';
+    const list = document.getElementById('episodes-list'); list.innerHTML = '<div style="padding: 20px 0; color: #aaa;">Carregando episódios...</div>';
     try {
-        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}/season/${season}?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}/season/${season}?api_key=${TMDB_API_KEY}&language=pt-BR`);
         const data = await res.json();
         list.innerHTML = '';
-        if(!data.episodes || data.episodes.length === 0) { list.innerHTML = '<div style="color: #aaa;">Sem episódios disponíveis.</div>'; return; }
+        if(!data.episodes || data.episodes.length === 0) { list.innerHTML = '<div style="color: #aaa;">Sem episódios.</div>'; return; }
         
         data.episodes.forEach(ep => {
             const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : img;
             list.innerHTML += `
                 <div class="episode-card fade-in-up" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
                     <img src="${epImg}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80'" />
-                    <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Reproduzir episódio'}</p></div>
+                    <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Assistir episódio'}</p></div>
                 </div>`;
         });
     } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar episódios.</div>'; }
