@@ -44,7 +44,10 @@ window.addEventListener('scroll', () => {
 
 function resetViews() {
     ['hero-banner', 'search-results-section', 'watchlist-section', 'continue-watching-section', 'categories-container']
-        .forEach(id => document.getElementById(id).style.display = 'none');
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
 }
 
 function lockScroll(lock) {
@@ -110,7 +113,8 @@ auth.onAuthStateChanged(async (user) => {
         minhaListaIDs.clear();
         document.getElementById('auth-email').value = '';
         document.getElementById('auth-password').value = '';
-        document.getElementById('auth-submit-btn').disabled = false;
+        const btn = document.getElementById('auth-submit-btn');
+        if(btn) btn.disabled = false;
         lockScroll(false); 
     }
 });
@@ -137,7 +141,8 @@ async function guardarPerfil(e) {
     const photo = document.getElementById('edit-avatar-url').value;
     if (user) {
         await user.updateProfile({ displayName: name, photoURL: photo });
-        document.getElementById('user-avatar-img').src = photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+        const avatar = document.getElementById('user-avatar-img');
+        if(avatar) avatar.src = photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
         fecharModalPerfil();
         showToast('Perfil atualizado com sucesso.');
     }
@@ -180,7 +185,7 @@ async function enviarMensagemBot(txt) {
         const img = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80';
         const title = item.title || item.name;
         
-        const html = `Recomendo este para si:
+        const html = `Recomendo este título:
             <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                 <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
                 <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
@@ -210,7 +215,9 @@ const CATEGORIAS = [
 ];
 
 async function carregarInicio() {
-    document.getElementById('search-input').value = '';
+    const searchInput = document.getElementById('search-input');
+    if(searchInput) searchInput.value = '';
+    
     resetViews();
     document.getElementById('hero-banner').style.display = 'flex';
     document.getElementById('categories-container').style.display = 'block';
@@ -234,7 +241,7 @@ function configurarHero(item) {
 
     document.getElementById('hero-banner').style.backgroundImage = `url('${bg}')`;
     document.getElementById('hero-title').innerText = title;
-    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD.';
+    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD na CineNet.';
     
     document.getElementById('hero-play-btn').onclick = () => assistirFilme(item.id, title, poster);
     
@@ -257,7 +264,7 @@ function renderizarCarrossel(titulo, items, type = 'movie') {
 
 function criarCardHTML(item, type = 'movie') {
     const id = String(item.id);
-    const title = (item.title || item.name).replace(/'/g, "\\'");
+    const title = (item.title || item.name || 'Sem Título').replace(/'/g, "\\'");
     const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
     const isSaved = minhaListaIDs.has(id);
     const action = type === 'tv' ? `abrirModalSerie('${id}','${title}','${img}')` : `assistirFilme('${id}','${title}','${img}')`;
@@ -365,8 +372,10 @@ async function toggleMinhaLista(data) {
 }
 
 async function carregarWatchlistIDs(uid) {
-    const s = await db.collection('users').doc(uid).collection('watchlist').get();
-    minhaListaIDs.clear(); s.forEach(d => minhaListaIDs.add(d.id));
+    try {
+        const s = await db.collection('users').doc(uid).collection('watchlist').get();
+        minhaListaIDs.clear(); s.forEach(d => minhaListaIDs.add(d.id));
+    } catch (e) { }
 }
 
 async function mostrarMinhaLista(el, e) {
@@ -383,34 +392,40 @@ async function carregarSecaoMinhaLista(uid) {
     const r = document.getElementById('watchlist-row');
     s.style.display = 'block'; r.innerHTML = '<div style="grid-column: 1/-1; padding: 50px 0; color: #aaa;">A carregar...</div>';
     
-    const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
-    if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia. Explore e adicione títulos!</div>'; return; }
-    
-    r.innerHTML = '';
-    snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
+    try {
+        const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
+        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia. Explore e adicione títulos!</div>'; return; }
+        
+        r.innerHTML = '';
+        snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
+    } catch (e) {
+        r.innerHTML = '<div style="grid-column: 1/-1; color: #E50914;">Erro ao carregar lista.</div>';
+    }
 }
 
 async function carregarFilaContinueAVer(uid) {
     const s = document.getElementById('continue-watching-section');
     const r = document.getElementById('continue-watching-row');
-    const snap = await db.collection('users').doc(uid).collection('continueWatching').orderBy('lastWatched','desc').limit(10).get();
-    
-    if (snap.empty || document.getElementById('hero-banner').style.display === 'none') { s.style.display = 'none'; return; } 
+    try {
+        const snap = await db.collection('users').doc(uid).collection('continueWatching').orderBy('lastWatched','desc').limit(10).get();
+        
+        if (snap.empty || document.getElementById('hero-banner').style.display === 'none') { s.style.display = 'none'; return; } 
 
-    s.style.display = 'block'; r.innerHTML = '';
-    snap.forEach(doc => {
-        const d = doc.data();
-        r.innerHTML += `
-            <div class="movie-card" tabindex="0" onclick="assistirFilme('${d.movieId}','${d.title.replace(/'/g, "\\'")}','${d.coverImage}')">
-                <img src="${d.coverImage}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80'" />
-                <div class="card-info"><span class="card-title">${d.title}</span></div>
-                <div class="progress-bar-container"><div class="progress-bar" style="width:100%"></div></div>
-            </div>`;
-    });
+        s.style.display = 'block'; r.innerHTML = '';
+        snap.forEach(doc => {
+            const d = doc.data();
+            r.innerHTML += `
+                <div class="movie-card" tabindex="0" onclick="assistirFilme('${d.movieId}','${d.title.replace(/'/g, "\\'")}','${d.coverImage}')">
+                    <img src="${d.coverImage}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80'" />
+                    <div class="card-info"><span class="card-title">${d.title}</span></div>
+                    <div class="progress-bar-container"><div class="progress-bar" style="width:100%"></div></div>
+                </div>`;
+        });
+    } catch (e) { }
 }
 
 // ==========================================
-// PLAYER & MODAL SÉRIES (FULLSCREEN)
+// PLAYER & MODAL SÉRIES (FULLSCREEN BLINDADO)
 // ==========================================
 function assistirFilme(id, title, img) {
     abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
@@ -423,24 +438,36 @@ function assistirEpisodio(id, s, e, title, img) {
 function abrirVideo(url, id, title, img) {
     const container = document.getElementById('video-container');
     const iframe = document.getElementById('mega-player-iframe');
+    const loader = document.getElementById('video-loader');
     
+    if(loader) loader.style.display = 'block';
     iframe.src = url;
     container.style.display = 'flex';
     lockScroll(true);
 
+    // Cross-browser Fullscreen nativo
     try {
-        if (container.requestFullscreen) container.requestFullscreen();
-        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-        else if (container.msRequestFullscreen) container.msRequestFullscreen();
+        if (container.requestFullscreen) {
+            container.requestFullscreen().catch(e => console.log('Fullscreen passivo', e));
+        } else if (container.webkitRequestFullscreen) {
+            container.webkitRequestFullscreen(); // Safari/iOS
+        } else if (container.msRequestFullscreen) {
+            container.msRequestFullscreen(); // IE/Edge
+        } else if (container.mozRequestFullScreen) {
+            container.mozRequestFullScreen(); // Firefox
+        }
         
-        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(e=>{});
+        // Bloqueio de rotação silencioso
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(() => {});
+        }
     } catch (e) { }
 
     const user = auth.currentUser;
     if (user) {
         db.collection('users').doc(user.uid).collection('continueWatching').doc(String(id)).set({
             movieId: String(id), title: title, coverImage: img, lastWatched: firebase.firestore.FieldValue.serverTimestamp()
-        }, {merge:true}).then(() => carregarFilaContinueAVer(user.uid));
+        }, {merge:true}).then(() => carregarFilaContinueAVer(user.uid)).catch(()=>{});
     }
 }
 
@@ -453,10 +480,11 @@ function fecharPlayer() {
     lockScroll(false);
 
     try {
-        if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement) {
-            if (document.exitFullscreen) document.exitFullscreen();
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+            if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
             else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
         }
         if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
     } catch (e) {}
@@ -464,31 +492,38 @@ function fecharPlayer() {
 
 async function abrirModalSerie(id, title, img) {
     document.getElementById('modal-tv-title').innerText = title;
-    const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-PT`);
-    const data = await res.json();
-    const sel = document.getElementById('season-select'); sel.innerHTML = '';
-    data.seasons.forEach(s => {
-        if (s.season_number > 0) sel.innerHTML += `<option value="${s.season_number}">Temporada ${s.season_number}</option>`;
-    });
-    sel.onchange = (e) => carregarEpisodios(id, e.target.value, title, img);
-    carregarEpisodios(id, 1, title, img);
-    document.getElementById('episodes-modal').style.display = 'flex';
-    lockScroll(true);
+    try {
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        if (!res.ok) throw new Error("Erro");
+        const data = await res.json();
+        const sel = document.getElementById('season-select'); sel.innerHTML = '';
+        data.seasons.forEach(s => {
+            if (s.season_number > 0) sel.innerHTML += `<option value="${s.season_number}">Temporada ${s.season_number}</option>`;
+        });
+        sel.onchange = (e) => carregarEpisodios(id, e.target.value, title, img);
+        carregarEpisodios(id, 1, title, img);
+        document.getElementById('episodes-modal').style.display = 'flex';
+        lockScroll(true);
+    } catch (e) { showToast("Não foi possível carregar as temporadas."); }
 }
 
 async function carregarEpisodios(id, season, title, img) {
     const list = document.getElementById('episodes-list'); list.innerHTML = '<div style="padding: 20px 0; color: #aaa;">A carregar...</div>';
-    const res = await fetch(`${TMDB_BASE_URL}/tv/${id}/season/${season}?api_key=${TMDB_API_KEY}&language=pt-PT`);
-    const data = await res.json();
-    list.innerHTML = '';
-    data.episodes.forEach(ep => {
-        const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : img;
-        list.innerHTML += `
-            <div class="episode-card fade-in-up" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
-                <img src="${epImg}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80'" />
-                <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Reproduzir episódio'}</p></div>
-            </div>`;
-    });
+    try {
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${id}/season/${season}?api_key=${TMDB_API_KEY}&language=pt-PT`);
+        const data = await res.json();
+        list.innerHTML = '';
+        if(!data.episodes || data.episodes.length === 0) { list.innerHTML = '<div style="color: #aaa;">Sem episódios disponíveis.</div>'; return; }
+        
+        data.episodes.forEach(ep => {
+            const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : img;
+            list.innerHTML += `
+                <div class="episode-card fade-in-up" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
+                    <img src="${epImg}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80'" />
+                    <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Reproduzir episódio'}</p></div>
+                </div>`;
+        });
+    } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar.</div>'; }
 }
 
 function fecharModalEpisodios() { 

@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#141414">
     <title>CineNet</title>
     
@@ -121,7 +121,7 @@
                 <button onclick="enviarMensagemBot('Ficção Científica')">🛸 Sci-Fi</button>
             </div>
             <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Pergunte-me algo...">
+                <input type="text" id="chat-input" placeholder="Pergunte-me algo..." onkeypress="if(event.key === 'Enter') enviarChatInput()">
                 <button class="btn-primary-small" onclick="enviarChatInput()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>
@@ -165,8 +165,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="26" height="26"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             Sair do Filme
         </button>
-        <div class="video-loader"></div>
-        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0"></iframe>
+        <div class="video-loader" id="video-loader"></div>
+        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0" onload="document.getElementById('video-loader').style.display='none'"></iframe>
     </div>
 
     <div id="toast-container"></div>
