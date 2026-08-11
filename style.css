@@ -21,19 +21,17 @@ body {
     background-color: var(--bg-color); color: var(--text-light);
     font-family: 'Inter', system-ui, -apple-system, sans-serif; 
     overflow-x: hidden; -webkit-font-smoothing: antialiased;
-    /* Suporte Scrollbar Firefox */
     scrollbar-width: thin; scrollbar-color: #444 transparent;
 }
 
-/* Suporte Scrollbar Webkit (Chrome, Edge, Safari) */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #666; }
 
-.no-scroll { overflow: hidden; padding-right: 8px; } /* Evita salto do ecrã */
+/* Evitar salto e travamento do scroll em modais no Mobile */
+.no-scroll { overflow: hidden; height: 100vh; touch-action: none; }
 
-/* Animações Polidas */
 .fade-in { animation: fadeIn 0.8s ease forwards; }
 .fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -73,10 +71,9 @@ body {
 
 .auth-switch { margin-top: 30px; color: var(--text-muted); font-size: 0.95rem; display: flex; justify-content: center; gap: 5px; }
 .auth-switch a { color: #fff; text-decoration: none; font-weight: 500; }
-.auth-switch a:hover { text-decoration: underline; }
 
 /* ==========================================
-   NAVBAR INTELIGENTE
+   NAVBAR
    ========================================== */
 .navbar {
     position: fixed; top: 0; left: 0; width: 100%; height: 70px; padding: 0 4%;
@@ -101,15 +98,12 @@ body {
 }
 .search-box input:focus { border-color: #fff; background: rgba(0,0,0,0.8); width: 260px; }
 
-.btn-chat-nav { background: transparent; border: none; color: #fff; cursor: pointer; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; }
-.btn-chat-nav:hover { transform: scale(1.1); color: var(--primary); }
-
-.user-profile-btn { cursor: pointer; border-radius: 4px; overflow: hidden; border: 1px solid transparent; transition: 0.2s; }
-.user-profile-btn:hover { border-color: var(--primary); }
+.btn-chat-nav { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; }
+.user-profile-btn { cursor: pointer; border-radius: 4px; overflow: hidden; }
 .user-profile-btn img { width: 34px; height: 34px; object-fit: cover; display: block; }
 
 /* ==========================================
-   HERO BANNER IMERSIVO
+   HERO BANNER
    ========================================== */
 .hero-banner {
     position: relative; height: 85vh; min-height: 500px; max-height: 800px;
@@ -125,7 +119,7 @@ body {
 
 .badge { background: var(--primary); padding: 4px 8px; border-radius: 3px; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; display: inline-block; margin-bottom: 15px; }
 .hero-content h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 800; margin: 0 0 15px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.6); line-height: 1.1; letter-spacing: -1px; }
-.hero-content p { color: #fff; font-size: 1.1rem; line-height: 1.6; margin-bottom: 30px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); font-weight: 400; max-width: 95%; }
+.hero-content p { color: #fff; font-size: 1.1rem; line-height: 1.6; margin-bottom: 30px; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); max-width: 95%; }
 
 .hero-buttons { display: flex; gap: 15px; }
 .btn-primary, .btn-secondary { 
@@ -133,19 +127,17 @@ body {
     font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; 
 }
 .btn-primary { background: #fff; color: #000; }
-.btn-primary:hover { background: rgba(255,255,255,0.75); }
 .btn-secondary { background: rgba(109, 109, 110, 0.7); color: #fff; }
-.btn-secondary:hover { background: rgba(109, 109, 110, 0.4); }
 
 /* ==========================================
-   CARROSSEL E CARDS
+   CARROSSEL E CARDS 
    ========================================== */
 .main-content { position: relative; z-index: 3; margin-top: -100px; padding-bottom: 50px; }
 .section-container { padding: 0 4% 40px; }
 .section-title { font-size: 1.25rem; margin-bottom: 12px; font-weight: 600; color: #e5e5e5; z-index: 5; position: relative; text-shadow: 1px 1px 2px #000; }
 
-.movie-row { display: flex; gap: 10px; overflow-x: auto; padding: 15px 0 20px; scrollbar-width: none; }
-.movie-row::-webkit-scrollbar { display: none; } /* Safari and Chrome */
+.movie-row { display: flex; gap: 10px; overflow-x: auto; padding: 15px 0 20px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.movie-row::-webkit-scrollbar { display: none; }
 
 .movies-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; padding-bottom: 30px; }
 
@@ -158,28 +150,37 @@ body {
 .movies-grid .movie-card { width: 100%; min-width: unset; }
 
 .movie-card img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-sm); transition: opacity 0.3s; }
-.movie-card:hover { transform: scale(1.06); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.9); }
-.movie-card:hover img { opacity: 0.8; }
 
-.movie-card::after {
-    content: "▶"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
-    background: rgba(0,0,0,0.5); color: #fff; width: 48px; height: 48px; border-radius: 50%; border: 2px solid #fff;
-    display: flex; align-items: center; justify-content: center; font-size: 1.1rem; opacity: 0; transition: all 0.3s ease; pointer-events: none;
+/* Hover effect ONLY for devices that support mouse hover (prevents bug on mobile) */
+@media (hover: hover) {
+    .movie-card:hover { transform: scale(1.06); z-index: 10; box-shadow: 0 10px 25px rgba(0,0,0,0.9); }
+    .movie-card:hover img { opacity: 0.8; }
+    
+    .movie-card::after {
+        content: "▶"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.5);
+        background: rgba(0,0,0,0.5); color: #fff; width: 48px; height: 48px; border-radius: 50%; border: 2px solid #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 1.1rem; opacity: 0; transition: all 0.3s ease; pointer-events: none;
+    }
+    .movie-card:hover::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .movie-card:hover .card-info { opacity: 1; }
 }
-.movie-card:hover::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
 .card-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 30px 12px 12px; background: linear-gradient(0deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 60%, transparent 100%); opacity: 0; transition: 0.3s; }
-.movie-card:hover .card-info { opacity: 1; }
 .card-title { font-size: 0.9rem; font-weight: 600; text-shadow: 1px 1px 2px #000; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+
+/* Mostrar título sempre visível no Mobile já que não há hover real */
+@media (hover: none) {
+    .card-info { opacity: 1; padding: 25px 8px 8px; }
+}
 
 .card-watchlist-btn {
     position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.4); color: #fff;
-    width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; z-index: 15; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; z-index: 15; display: flex; align-items: center; justify-content: center;
 }
-.card-watchlist-btn:hover, .card-watchlist-btn.active { background: var(--primary); border-color: var(--primary); }
+.card-watchlist-btn.active { background: var(--primary); border-color: var(--primary); }
 
 .progress-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.2); z-index: 5; }
-.progress-bar { height: 100%; background: var(--primary); box-shadow: 0 0 5px var(--primary); }
+.progress-bar { height: 100%; background: var(--primary); box-shadow: 0 0 8px var(--primary); }
 
 /* ==========================================
    MODAIS E CHAT IA
@@ -189,37 +190,32 @@ body {
     -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); 
     z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 20px; 
 }
-.modal-card { background: var(--card-bg); border-radius: var(--radius-sm); padding: 40px; width: 100%; max-width: 450px; position: relative; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.8); border: 1px solid var(--glass-border); }
-.episodes-card { max-width: 700px; padding: 30px; }
+.modal-card { background: var(--card-bg); border-radius: var(--radius-sm); padding: 35px; width: 100%; max-width: 450px; position: relative; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.8); border: 1px solid var(--glass-border); }
+.episodes-card { max-width: 700px; padding: 25px; }
 
 .close-modal-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #aaa; font-size: 1.4rem; cursor: pointer; transition: 0.2s; }
 .close-modal-btn:hover { color: #fff; transform: scale(1.1); }
 
-.season-dropdown { width: 100%; padding: 12px; background: #222; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 1rem; outline: none; cursor: pointer; transition: 0.2s; }
-.season-dropdown:focus { border-color: var(--primary); }
-
-.episodes-list-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; margin-top: 20px; padding-right: 5px; scrollbar-width: thin; scrollbar-color: #444 transparent; }
-.episode-card { display: flex; gap: 15px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid transparent; transition: 0.2s; align-items: center; }
-.episode-card:hover { background: rgba(229,9,20,0.15); border-color: var(--primary); transform: translateX(4px); }
-.episode-card img { width: 120px; height: 68px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.season-dropdown { width: 100%; padding: 12px; background: #222; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 1rem; outline: none; }
+.episodes-list-container { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; margin-top: 15px; padding-right: 5px; scrollbar-width: thin; scrollbar-color: #444 transparent; -webkit-overflow-scrolling: touch; }
+.episode-card { display: flex; gap: 15px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: var(--radius-sm); cursor: pointer; border: 1px solid transparent; align-items: center; }
+.episode-card img { width: 110px; height: 62px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
 .ep-info h4 { font-size: 0.95rem; margin-bottom: 6px; font-weight: 600; color: #fff; }
 .ep-info p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Chat Bot */
 .chat-container { background: var(--card-bg); border-radius: var(--radius-md); width: 100%; max-width: 380px; height: 550px; display: flex; flex-direction: column; overflow: hidden; position: fixed; bottom: 20px; right: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 9999; border: 1px solid var(--glass-border); }
 .chat-header { background: #222; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
-.chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scrollbar-width: thin; }
+.chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scrollbar-width: thin; -webkit-overflow-scrolling: touch;}
 .chat-message { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; }
 .chat-message.bot { background: #333; align-self: flex-start; border-bottom-left-radius: 2px; color: #eee; }
 .chat-message.user { background: var(--primary); align-self: flex-end; border-bottom-right-radius: 2px; color: #fff; }
-.chat-quick-actions { padding: 12px; display: flex; gap: 8px; overflow-x: auto; background: #1a1a1a; border-top: 1px solid #333; scrollbar-width: none; }
+.chat-quick-actions { padding: 12px; display: flex; gap: 8px; overflow-x: auto; background: #1a1a1a; border-top: 1px solid #333; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .chat-quick-actions::-webkit-scrollbar { display: none; }
-.chat-quick-actions button { background: #333; color: #fff; border: 1px solid transparent; padding: 8px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap; font-size: 0.85rem; transition: 0.2s; }
-.chat-quick-actions button:hover { background: #444; border-color: #666; }
+.chat-quick-actions button { background: #333; color: #fff; border: 1px solid transparent; padding: 8px 14px; border-radius: 20px; cursor: pointer; white-space: nowrap; font-size: 0.85rem; }
 .chat-input-area { padding: 12px; display: flex; gap: 8px; background: #222; }
 .chat-input-area input { flex: 1; padding: 12px 15px; border-radius: 20px; border: none; background: #000; color: #fff; outline: none; }
 .btn-primary-small { background: var(--primary); color: #fff; border: none; padding: 0 15px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.btn-primary-small:hover { background: var(--primary-hover); }
 
 /* ==========================================
    VIDEO PLAYER (FULLSCREEN NATIVO & OVERLAY)
@@ -235,39 +231,46 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Botão Fechar Respeitando as Safe Areas (Notch do iPhone/Android) */
 .close-video-btn { 
-    position: absolute; top: 25px; left: 30px; z-index: 1000000; background: transparent; 
-    color: #fff; font-size: 1.1rem; padding: 10px 20px; border: none; 
-    cursor: pointer; font-weight: 600; text-shadow: 0 2px 6px rgba(0,0,0,0.9); transition: 0.2s; 
-    display: flex; align-items: center; gap: 8px; opacity: 0.7;
+    position: absolute; 
+    top: env(safe-area-inset-top, 25px); 
+    left: env(safe-area-inset-left, 30px); 
+    z-index: 1000000; background: transparent; 
+    color: #fff; border: none; cursor: pointer; 
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.9));
+    transition: 0.2s; display: flex; align-items: center; opacity: 0.8;
 }
-.close-video-btn:hover { opacity: 1; transform: scale(1.05); color: var(--primary); }
 
 .video-modal:fullscreen .close-video-btn,
-.video-modal:-webkit-full-screen .close-video-btn,
-.video-modal:-moz-full-screen .close-video-btn,
-.video-modal:-ms-fullscreen .close-video-btn { display: flex; }
+.video-modal:-webkit-full-screen .close-video-btn { display: flex; }
 
 /* Toasts */
-#toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-.toast { background: rgba(229, 9, 20, 0.95); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); color: #fff; padding: 14px 28px; border-radius: 30px; font-size: 0.95rem; font-weight: 500; box-shadow: 0 5px 20px rgba(0,0,0,0.6); animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+#toast-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; flex-direction: column; gap: 10px; pointer-events: none; width: 90%; max-width: 350px;}
+.toast { background: rgba(229, 9, 20, 0.95); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); color: #fff; padding: 14px 20px; border-radius: 30px; font-size: 0.95rem; font-weight: 500; box-shadow: 0 5px 20px rgba(0,0,0,0.6); animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; text-align: center;}
 
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-/* Foco D-Pad Smart TV */
-:focus-visible { outline: 3px solid #fff; outline-offset: 2px; border-radius: var(--radius-sm); }
-
-/* Responsividade Mobile */
+/* ==========================================
+   OTIMIZAÇÕES MOBILE
+   ========================================== */
 @media (max-width: 768px) {
     .nav-links { display: none; }
-    .nav-left, .nav-right { gap: 15px; }
-    .search-box input { width: 40px; padding: 8px; border-radius: 50%; color: transparent; cursor: pointer; }
-    .search-box input:focus { width: 180px; padding: 8px 16px 8px 35px; border-radius: 4px; color: #fff; cursor: text; }
+    .nav-left, .nav-right { gap: 12px; }
+    
+    .search-box input { width: 36px; padding: 8px; border-radius: 50%; color: transparent; cursor: pointer; }
+    .search-box input:focus { width: 160px; padding: 8px 16px 8px 35px; border-radius: 4px; color: #fff; cursor: text; }
+    
+    .hero-banner { height: 75vh; min-height: 480px; }
     .hero-content h1 { font-size: 2.2rem; }
-    .hero-buttons { flex-direction: column; }
+    .hero-content p { font-size: 0.95rem; max-width: 100%; }
+    .hero-buttons { flex-direction: column; gap: 10px; }
     .hero-buttons button { width: 100%; justify-content: center; }
-    .movie-card { min-width: 130px; width: 130px; }
-    .movies-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-    .chat-container { width: 90%; right: 5%; bottom: 10px; height: 500px; }
-    .auth-box { padding: 40px 30px; }
+    
+    /* Grelhas adaptadas para ecrãs menores */
+    .movie-card { min-width: 125px; width: 125px; }
+    .movies-grid { grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); gap: 10px; }
+    
+    /* Chat IA Ocupa o ecrã todo no mobile para não quebrar com o teclado */
+    .chat-container { width: 100%; height: 100%; bottom: 0; right: 0; border-radius: 0; max-width: 100%; z-index: 10000; }
+    .auth-box { padding: 40px 25px; }
+    .modal-card { padding: 25px 20px; width: 95%; }
 }

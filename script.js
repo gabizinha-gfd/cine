@@ -25,7 +25,7 @@ let debounceSearchTimer;
 let isLoginMode = true;
 
 // ==========================================
-// UI & SCROLL MANAGEMENT
+// UI & GESTÃO DE ECRÃS
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -50,9 +50,13 @@ function resetViews() {
         });
 }
 
+// Bloquear fundo ao abrir modais (especial para iOS)
 function lockScroll(lock) {
-    if (lock) document.body.classList.add('no-scroll');
-    else document.body.classList.remove('no-scroll');
+    if (lock) {
+        document.body.classList.add('no-scroll');
+    } else {
+        document.body.classList.remove('no-scroll');
+    }
 }
 
 // ==========================================
@@ -185,7 +189,7 @@ async function enviarMensagemBot(txt) {
         const img = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80';
         const title = item.title || item.name;
         
-        const html = `Recomendo este título:
+        const html = `Aqui está uma excelente recomendação:
             <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                 <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
                 <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
@@ -247,10 +251,12 @@ function configurarHero(item) {
     
     const isSaved = minhaListaIDs.has(String(item.id));
     const wlBtn = document.getElementById('hero-watchlist-btn');
-    wlBtn.innerHTML = isSaved 
-        ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Na Lista` 
-        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
-    wlBtn.onclick = () => toggleMinhaLista({ id: item.id, title: title, coverImage: poster });
+    if(wlBtn) {
+        wlBtn.innerHTML = isSaved 
+            ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Guardado` 
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
+        wlBtn.onclick = () => toggleMinhaLista({ id: item.id, title: title, coverImage: poster });
+    }
 }
 
 function renderizarCarrossel(titulo, items, type = 'movie') {
@@ -361,7 +367,7 @@ async function toggleMinhaLista(data) {
         const wlBtn = document.getElementById('hero-watchlist-btn');
         if (wlBtn && document.getElementById('hero-play-btn').onclick.toString().includes(id)) {
             wlBtn.innerHTML = minhaListaIDs.has(id) 
-                ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Na Lista` 
+                ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Guardado` 
                 : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
         }
 
@@ -425,7 +431,7 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER & MODAL SÉRIES (FULLSCREEN BLINDADO)
+// PLAYER & MODAL SÉRIES (FULLSCREEN E MOBILE)
 // ==========================================
 function assistirFilme(id, title, img) {
     abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
@@ -445,19 +451,13 @@ function abrirVideo(url, id, title, img) {
     container.style.display = 'flex';
     lockScroll(true);
 
-    // Cross-browser Fullscreen nativo
+    // Cross-browser Fullscreen
     try {
-        if (container.requestFullscreen) {
-            container.requestFullscreen().catch(e => console.log('Fullscreen passivo', e));
-        } else if (container.webkitRequestFullscreen) {
-            container.webkitRequestFullscreen(); // Safari/iOS
-        } else if (container.msRequestFullscreen) {
-            container.msRequestFullscreen(); // IE/Edge
-        } else if (container.mozRequestFullScreen) {
-            container.mozRequestFullScreen(); // Firefox
-        }
+        if (container.requestFullscreen) container.requestFullscreen().catch(e => console.log(e));
+        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+        else if (container.msRequestFullscreen) container.msRequestFullscreen();
         
-        // Bloqueio de rotação silencioso
+        // Bloqueio de rotação para telemóveis (tenta rodar para horizontal)
         if (screen.orientation && screen.orientation.lock) {
             screen.orientation.lock('landscape').catch(() => {});
         }
@@ -483,7 +483,6 @@ function fecharPlayer() {
         if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
             if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
             else if (document.msExitFullscreen) document.msExitFullscreen();
         }
         if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();

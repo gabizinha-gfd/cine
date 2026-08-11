@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#141414">
-    <title>CineNet</title>
+    <title>CineNet | Streaming Premium</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -53,12 +53,12 @@
             <div class="nav-right">
                 <div class="search-box">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="search-input" placeholder="Pesquisar títulos..." oninput="pesquisarTitulos(event)">
+                    <input type="text" id="search-input" placeholder="Pesquisar..." oninput="pesquisarTitulos(event)">
                 </div>
                 <button class="btn-chat-nav" onclick="abrirChat()" title="Assistente Virtual">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </button>
-                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Configurações">
+                <div class="user-profile-btn" onclick="abrirModalPerfil()">
                     <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80'">
                 </div>
             </div>
@@ -72,12 +72,10 @@
                 <p id="hero-desc">Descubra as melhores produções cinematográficas mundiais.</p>
                 <div class="hero-buttons">
                     <button class="btn-primary" id="hero-play-btn">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg>
-                        Assistir
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg> Assistir
                     </button>
                     <button class="btn-secondary" id="hero-watchlist-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg>
-                        Guardar
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar
                     </button>
                 </div>
             </div>
@@ -113,7 +111,7 @@
                 <button class="close-modal-btn" onclick="fecharChat()">✕</button>
             </div>
             <div id="chat-messages" class="chat-messages">
-                <div class="chat-message bot">Olá! Sou o assistente de inteligência do CineNet. Que tipo de conteúdo procura hoje?</div>
+                <div class="chat-message bot">Olá! Sou o assistente do CineNet. Que tipo de conteúdo procura hoje?</div>
             </div>
             <div class="chat-quick-actions">
                 <button onclick="enviarMensagemBot('Recomenda um filme de Ação')">💥 Ação</button>
@@ -163,7 +161,6 @@
     <div id="video-container" class="video-modal" style="display: none;">
         <button class="close-video-btn" onclick="fecharPlayer()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="26" height="26"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            Sair do Filme
         </button>
         <div class="video-loader" id="video-loader"></div>
         <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0" onload="document.getElementById('video-loader').style.display='none'"></iframe>
