@@ -1,6 +1,16 @@
 // ==========================================
-// CONFIGURAÇÕES CORE
+// INFRAESTRUTURA CORE & CHAVES
 // ==========================================
+const TMDB_KEY = '17c56e3825d7fbae6581866083d0d778'; 
+let itemSelecionado = null;
+let debounceTimer; 
+let currentUserUID = null;
+let biblioteca = { watchlist: {}, reviews: {}, perfil: {} };
+let isLoginMode = false;
+
+const ADMIN_EMAIL = "roberci.azevedo@academico.ifpb.edu.br"; 
+
+// CONFIGURAÇÃO DO FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
     authDomain: "cinenet-ifpb.firebaseapp.com",
@@ -10,300 +20,343 @@ const firebaseConfig = {
     messagingSenderId: "1098247355110",
     appId: "1:1098247355110:web:c9f867826f26b0ef171927"
 };
-
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const auth = firebase.auth();
 
-const TMDB_KEY = "17c56e3825d7fbae6581866083d0d778";
-const ADMIN_EMAIL = "roberci.azevedo@academico.ifpb.edu.br"; 
-const PIX_KEY = "83993967296";
-
-let isLoginMode = true;
-let currentUserUID = null;
-let statusAssinatura = "inativo"; // "inativo", "pendente", "ativo"
-
-// ==========================================
-// AUTENTICAÇÃO E CONTROLO DE ESTADO
-// ==========================================
-function showToast(msg) {
-    const c = document.getElementById('toast-container');
-    if (!c) return;
-    const t = document.createElement('div');
-    t.className = 'toast animate-fade-in'; t.innerText = msg;
-    c.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
-}
-
-document.getElementById('auth-switch-btn')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    isLoginMode = !isLoginMode;
-    document.getElementById('auth-title').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
-    document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
-    document.getElementById('auth-switch-btn').innerText = isLoginMode ? 'Assine agora.' : 'Entrar';
-});
-
-document.getElementById('auth-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
-    const err = document.getElementById('auth-error');
-    err.innerText = "Processando...";
-
-    if (isLoginMode) {
-        auth.signInWithEmailAndPassword(email, password).catch(e => err.innerText = "Erro: " + e.message);
-    } else {
-        auth.createUserWithEmailAndPassword(email, password).then((userCred) => {
-            // Conta nova: Define como inativo
-            db.ref('users/' + userCred.user.uid + '/assinatura').set({ status: 'inativo' });
-        }).catch(e => err.innerText = "Erro: " + e.message);
+window.addEventListener('scroll', () => {
+    const nav = document.querySelector('.navbar');
+    if (nav) {
+        if (window.scrollY > 50) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
     }
 });
 
-function logout() { auth.signOut().then(() => window.location.reload()); }
+// ==========================================
+// AUTENTICAÇÃO E SESSÃO
+// ==========================================
+document.getElementById('auth-switch-btn').addEventListener('click', (e) => {
+    e.preventDefault();
+    isLoginMode = !isLoginMode;
+    ocultarErroAuth();
+    
+    document.getElementById('auth-title').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
+    document.getElementById('auth-submit-btn').innerText = isLoginMode ? 'Entrar' : 'Criar Conta';
+    document.getElementById('auth-switch-text').innerText = isLoginMode ? 'Novo por aqui?' : 'Já tem uma conta?';
+    document.getElementById('auth-switch-btn').innerText = isLoginMode ? 'Registe-se agora.' : 'Entrar';
+});
 
-// ESCUTA O UTILIZADOR E O STATUS DE PAGAMENTO EM TEMPO REAL
-auth.onAuthStateChanged(user => {
+document.getElementById('btn-toggle-password').addEventListener('click', () => {
+    const pwdInput = document.getElementById('auth-password');
+    const btnToggle = document.getElementById('btn-toggle-password');
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        btnToggle.innerText = '🙈';
+    } else {
+        pwdInput.type = 'password';
+        btnToggle.innerText = '👁️';
+    }
+});
+
+document.getElementById('auth-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    ocultarErroAuth();
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+
+    if (isLoginMode) {
+        firebase.auth().signInWithEmailAndPassword(email, password)
+            .catch(err => exibirErroAuth(err));
+    } else {
+        firebase.auth().createUserWithEmailAndPassword(email, password)
+            .catch(err => exibirErroAuth(err));
+    }
+});
+
+document.getElementById('btn-guest-auth').addEventListener('click', () => {
+    ocultarErroAuth();
+    firebase.auth().signInAnonymously().catch(err => {
+        console.warn("Entrando no modo convidado local.", err);
+        iniciarSessaoConvidadoLocal();
+    });
+});
+
+function iniciarSessaoConvidadoLocal() {
+    currentUserUID = "guest_" + Math.random().toString(36).substring(2, 9);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    carregarDadosUsuario(true);
+    irParaHome();
+}
+
+function exibirErroAuth(err) {
+    const errorEl = document.getElementById('auth-error');
+    let mensagem = "Ocorreu um erro ao processar. Tente novamente.";
+    switch(err.code) {
+        case 'auth/user-not-found': mensagem = "⚠️ Esta conta não existe."; break;
+        case 'auth/wrong-password': mensagem = "⚠️ Senha incorreta."; break;
+        case 'auth/invalid-email': mensagem = "⚠️ Digite um e-mail válido."; break;
+        case 'auth/email-already-in-use': mensagem = "⚠️ Este e-mail já está em uso."; break;
+        case 'auth/weak-password': mensagem = "⚠️ A senha deve ter pelo menos 6 caracteres."; break;
+        default: mensagem = "⚠️ " + (err.message || mensagem);
+    }
+    errorEl.innerText = mensagem;
+    errorEl.style.display = 'block';
+}
+
+function ocultarErroAuth() {
+    const errorEl = document.getElementById('auth-error');
+    errorEl.style.display = 'none';
+    errorEl.innerText = '';
+}
+
+firebase.auth().onAuthStateChanged(user => {
     if (user) {
         currentUserUID = user.uid;
         document.getElementById('auth-screen').style.display = 'none';
-        
-        // Verifica se é o Admin para mostrar o botão do painel
-        if (user.email === ADMIN_EMAIL) {
-            document.getElementById('nav-admin-btn').style.display = 'block';
-        }
-
-        // Listener em Tempo Real da Assinatura (Impede Fraudes e Atualiza a Tela Instantaneamente)
-        db.ref('users/' + user.uid + '/assinatura').on('value', snapshot => {
-            const data = snapshot.val();
-            statusAssinatura = data ? data.status : "inativo";
-            
-            atualizarBadge(statusAssinatura);
-
-            if (statusAssinatura === 'ativo') {
-                // Pagamento Confirmado -> Libera a App
-                document.getElementById('subscription-screen').style.display = 'none';
-                document.getElementById('app-content').style.display = 'block';
-                carregarHome(); // Carrega os filmes
-            } 
-            else if (statusAssinatura === 'pendente') {
-                // Pagamento Pendente -> Tela de Aguardar
-                document.getElementById('app-content').style.display = 'none';
-                document.getElementById('subscription-screen').style.display = 'flex';
-                document.getElementById('plans-grid-container').style.display = 'none';
-                document.getElementById('pending-payment-container').style.display = 'block';
-            } 
-            else {
-                // Inativo/Recusado -> Mostrar Planos
-                document.getElementById('app-content').style.display = 'none';
-                document.getElementById('subscription-screen').style.display = 'flex';
-                document.getElementById('plans-grid-container').style.display = 'block';
-                document.getElementById('pending-payment-container').style.display = 'none';
-            }
-        });
+        document.getElementById('app-content').style.display = 'block';
+        carregarDadosUsuario(user.isAnonymous);
+        irParaHome();
     } else {
         currentUserUID = null;
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-content').style.display = 'none';
-        document.getElementById('subscription-screen').style.display = 'none';
     }
 });
 
-function atualizarBadge(status) {
-    const badge = document.getElementById('user-sub-badge');
-    if (!badge) return;
-    if (status === 'ativo') {
-        badge.innerHTML = '⭐ VIP Premium';
-        badge.className = 'sub-badge ativo';
-    } else if (status === 'pendente') {
-        badge.innerHTML = '⏳ Análise PIX';
-        badge.className = 'sub-badge pendente';
-    } else {
-        badge.innerHTML = '🔒 Sem Assinatura';
-        badge.className = 'sub-badge inativo';
+function logout() { 
+    if (firebase.auth().currentUser) firebase.auth().signOut(); 
+    else {
+        currentUserUID = null;
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('app-content').style.display = 'none';
     }
 }
 
-// ==========================================
-// FLUXO DE PAGAMENTO (USUÁRIO)
-// ==========================================
-
-// Plano Grátis (Opção limitada - exemplo, aprova direto mas vc pode limitar no Player depois)
-function assinarPlanoGratis() {
-    db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'ativo', plano: 'Grátis' });
-    showToast("Plano Grátis ativado com sucesso!");
-}
-
-function abrirModalPagamento() {
-    document.getElementById('paymentModal').style.display = 'flex';
-}
-
-function fecharModalPagamento() {
-    document.getElementById('paymentModal').style.display = 'none';
-}
-
-function copiarChavePix() {
-    navigator.clipboard.writeText(PIX_KEY).then(() => {
-        showToast("Chave PIX copiada!");
-    }).catch(() => {
-        showToast("Selecione a chave e copie manualmente.");
+function carregarDadosUsuario(isAnonymous = false) {
+    if (isAnonymous) {
+        biblioteca = { watchlist: {}, reviews: {}, perfil: { nome: "Convidado 👤", avatar: avataresSeguros[0] } };
+        atualizarNavBar();
+        return;
+    }
+    firebase.database().ref('users/' + currentUserUID + '/biblioteca').once('value').then(snapshot => {
+        const data = snapshot.val();
+        if (data) biblioteca = data;
+        if (!biblioteca.watchlist) biblioteca.watchlist = {};
+        if (!biblioteca.reviews) biblioteca.reviews = {};
+        if (!biblioteca.perfil) biblioteca.perfil = { nome: "Utilizador", avatar: avataresSeguros[0] };
+        atualizarNavBar();
     });
 }
 
-// Quando o usuário clica em "Já fiz a transferência"
-function solicitarConfirmacaoPix() {
-    const user = auth.currentUser;
-    const btn = document.getElementById('payment-submit-btn');
-    btn.disabled = true;
-    btn.innerText = "Enviando solicitação...";
+function salvarDados() {
+    if (currentUserUID && (!firebase.auth().currentUser || !firebase.auth().currentUser.isAnonymous)) {
+        firebase.database().ref('users/' + currentUserUID + '/biblioteca').set(biblioteca);
+    }
+}
 
-    const pedido = {
-        uid: user.uid,
-        email: user.email,
-        status: "pendente",
-        data: new Date().toLocaleString('pt-BR'),
-        plano: "VIP Premium",
-        valor: "R$ 14,90"
-    };
+// ==========================================
+// PERFIL DE UTILIZADOR
+// ==========================================
+const avataresSeguros = [
+    "https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png",
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=e50914",
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=1f1f1f",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=b20710"
+];
+let avatarTemporario = "";
 
-    // Atualiza o perfil do usuário para Pendente
-    db.ref('users/' + user.uid + '/assinatura').set({ status: 'pendente' }).then(() => {
-        // Envia para a fila do Administrador
-        return db.ref('pagamentos_pendentes/' + user.uid).set(pedido);
-    }).then(() => {
-        fecharModalPagamento();
-        showToast("Solicitação enviada! O administrador irá analisar o seu PIX.");
-        btn.disabled = false;
-        btn.innerText = "Já fiz a transferência";
-    }).catch(err => {
-        showToast("Erro de conexão. Tente novamente.");
-        btn.disabled = false;
-        btn.innerText = "Já fiz a transferência";
+function atualizarNavBar() {
+    document.getElementById('user-name-pc').innerText = biblioteca.perfil.nome || "Utilizador";
+    document.getElementById('user-avatar-pc').src = biblioteca.perfil.avatar || avataresSeguros[0];
+}
+
+function abrirModalPerfil() {
+    document.getElementById('input-profile-name').value = biblioteca.perfil.nome || "Utilizador";
+    document.getElementById('input-profile-url').value = "";
+    avatarTemporario = biblioteca.perfil.avatar || avataresSeguros[0];
+    renderizarGrelhaAvatares();
+    document.getElementById('profileModal').style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function fecharModalPerfil() {
+    document.getElementById('profileModal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function renderizarGrelhaAvatares() {
+    const grid = document.getElementById('default-avatars-grid');
+    grid.innerHTML = '';
+    avataresSeguros.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.className = 'avatar-option';
+        if (url === avatarTemporario) img.classList.add('selected');
+        img.onclick = () => {
+            avatarTemporario = url;
+            document.getElementById('input-profile-url').value = "";
+            renderizarGrelhaAvatares();
+        };
+        grid.appendChild(img);
     });
 }
 
-// ==========================================
-// PAINEL DO ADMINISTRADOR (ANTI-FRAUDE)
-// ==========================================
-
-function abrirPainelAdmin() {
-    document.getElementById('adminModal').style.display = 'flex';
-    carregarPagamentosPendentes();
+function salvarPerfil() {
+    const novoNome = document.getElementById('input-profile-name').value.trim();
+    const customUrl = document.getElementById('input-profile-url').value.trim();
+    biblioteca.perfil.nome = novoNome || "Utilizador";
+    biblioteca.perfil.avatar = customUrl !== "" ? customUrl : avatarTemporario;
+    atualizarNavBar();
+    salvarDados();
+    fecharModalPerfil();
 }
 
-function fecharPainelAdmin() {
-    document.getElementById('adminModal').style.display = 'none';
+// ==========================================
+// NAVEGAÇÃO
+// ==========================================
+function toggleSubmenu() {
+    const submenu = document.getElementById('mobile-submenu');
+    if(submenu) submenu.classList.toggle('ativa');
 }
 
-function carregarPagamentosPendentes() {
-    const lista = document.getElementById('admin-payments-list');
-    lista.innerHTML = '<p style="text-align:center; color:#aaa;">Carregando...</p>';
+function setNavActive(idDesktop, idMobile) {
+    document.querySelectorAll('.nav-menu a, .mobile-bottom-nav a').forEach(el => el.classList.remove('active', 'active-nav'));
+    if(idDesktop && document.getElementById(idDesktop)) document.getElementById(idDesktop).classList.add('active');
+    if(idMobile && document.getElementById(idMobile)) document.getElementById(idMobile).classList.add('active-nav');
+}
 
-    db.ref('pagamentos_pendentes').on('value', snapshot => {
-        lista.innerHTML = '';
-        const dados = snapshot.val();
-        let temPendente = false;
-
-        if (dados) {
-            Object.keys(dados).forEach(uid => {
-                const p = dados[uid];
-                if (p.status === 'pendente') {
-                    temPendente = true;
-                    lista.innerHTML += `
-                        <div class="admin-row">
-                            <div class="admin-info">
-                                <p><strong>Email:</strong> ${p.email}</p>
-                                <p><strong>Data:</strong> ${p.data}</p>
-                                <p><strong>Valor:</strong> ${p.valor}</p>
-                            </div>
-                            <div class="admin-actions">
-                                <button class="btn-approve" onclick="aprovarPix('${p.uid}')">✅ Aprovar</button>
-                                <button class="btn-reject" onclick="rejeitarPix('${p.uid}')">❌ Rejeitar</button>
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-        }
-
-        if (!temPendente) {
-            lista.innerHTML = '<p style="text-align:center; color:#2ecc71; padding: 20px;">Nenhum pagamento pendente!</p>';
-        }
+function esconderTodasSessoes() {
+    const sessoes = ['main-content', 'movies-section', 'series-section', 'animes-section', 'doramas-section', 'search-results-section', 'watchlist-section', 'chat-section'];
+    sessoes.forEach(id => {
+        if(document.getElementById(id)) document.getElementById(id).style.display = 'none';
     });
 }
 
-function aprovarPix(uid) {
-    if(confirm("Confirmar que o dinheiro caiu na conta? O acesso será libertado imediatamente.")) {
-        // Atualiza a fila
-        db.ref('pagamentos_pendentes/' + uid).update({ status: 'aprovado' });
-        // Libera o utilizador (Isto ativa o OnSnapshot na tela dele em tempo real!)
-        db.ref('users/' + uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
-        showToast("Pagamento Aprovado! Usuário libertado.");
-    }
-}
+function irParaHome() { setNavActive('nav-home', 'mob-nav-home'); esconderTodasSessoes(); document.getElementById('main-content').style.display = 'block'; carregarHome(); }
+function irParaFilmes() { setNavActive('nav-movies', 'mob-nav-titulos'); esconderTodasSessoes(); document.getElementById('movies-section').style.display = 'block'; carregarFilmes(); }
+function irParaSeries() { setNavActive('nav-series', 'mob-nav-titulos'); esconderTodasSessoes(); document.getElementById('series-section').style.display = 'block'; carregarSeries(); }
+function irParaAnimes() { setNavActive('nav-animes', 'mob-nav-titulos'); esconderTodasSessoes(); document.getElementById('animes-section').style.display = 'block'; carregarAnimes(); }
+function irParaDoramas() { setNavActive('nav-doramas', 'mob-nav-titulos'); esconderTodasSessoes(); document.getElementById('doramas-section').style.display = 'block'; carregarDoramas(); }
+function irParaBusca() { setNavActive('nav-search', 'mob-nav-search'); esconderTodasSessoes(); document.getElementById('search-results-section').style.display = 'block'; }
+function irParaWatchlist() { setNavActive('nav-watchlist', 'mob-nav-titulos'); esconderTodasSessoes(); document.getElementById('watchlist-section').style.display = 'block'; renderizarWatchlist(); }
+function irParaChat() { setNavActive(null, 'mob-nav-chat'); esconderTodasSessoes(); document.getElementById('chat-section').style.display = 'block'; }
 
-function rejeitarPix(uid) {
-    if(confirm("Tem a certeza que deseja rejeitar este pagamento? O utilizador voltará para a tela de planos.")) {
-        db.ref('pagamentos_pendentes/' + uid).update({ status: 'rejeitado' });
-        db.ref('users/' + uid + '/assinatura').set({ status: 'inativo' });
-        showToast("Pagamento rejeitado.");
+if(document.getElementById('nav-home')) document.getElementById('nav-home').onclick = irParaHome;
+if(document.getElementById('mob-nav-home')) document.getElementById('mob-nav-home').onclick = irParaHome;
+if(document.getElementById('nav-movies')) document.getElementById('nav-movies').onclick = irParaFilmes;
+if(document.getElementById('nav-series')) document.getElementById('nav-series').onclick = irParaSeries;
+if(document.getElementById('nav-animes')) document.getElementById('nav-animes').onclick = irParaAnimes;
+if(document.getElementById('nav-doramas')) document.getElementById('nav-doramas').onclick = irParaDoramas;
+if(document.getElementById('nav-search')) document.getElementById('nav-search').onclick = irParaBusca;
+if(document.getElementById('nav-watchlist')) document.getElementById('nav-watchlist').onclick = irParaWatchlist;
+if(document.getElementById('nav-chat')) document.getElementById('nav-chat').onclick = irParaChat;
+if(document.getElementById('mob-nav-chat')) document.getElementById('mob-nav-chat').onclick = irParaChat;
+
+function scrollCarousel(rowId, direction) {
+    const row = document.getElementById(rowId);
+    if(row) {
+        const scrollAmount = row.clientWidth * 0.8;
+        row.scrollBy({ left: scrollAmount * direction, behavior: 'smooth' });
     }
 }
 
 // ==========================================
-// REPRODUTOR DE VÍDEO (BLINDADO)
-// ==========================================
-function abrirPlayer(id, tipo) {
-    const user = auth.currentUser;
-    const eAdmin = user && user.email === ADMIN_EMAIL;
-
-    // A BARREIRA FINAL ANTI-FRAUDE
-    if (statusAssinatura !== 'ativo' && !eAdmin) {
-        showToast("⚠️ Assinatura necessária para reproduzir este título.");
-        return; // BLOQUEIA A EXECUÇÃO DO VÍDEO
-    }
-
-    const container = document.getElementById('streaming-player-screen');
-    const iframe = document.getElementById('videoPlayer');
-    
-    if (tipo === 'tv') {
-        iframe.src = `https://mgeb.top/embed/tv/${id}/1/1`;
-    } else {
-        iframe.src = `https://mgeb.top/embed/movie/${id}`;
-    }
-    
-    container.style.display = 'flex';
-}
-
-document.getElementById('close-player-btn')?.addEventListener('click', () => {
-    document.getElementById('streaming-player-screen').style.display = 'none';
-    document.getElementById('videoPlayer').src = '';
-});
-
-// ==========================================
-// TMDB FETCH DATA (Mantido do seu sistema)
+// REQUISIÇÕES E RENDERIZAÇÃO DE CATÁLOGO
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
-        const res = await fetch(`https://api.themoviedb.org/3${endpoint}?api_key=${TMDB_KEY}&language=pt-BR`);
+        const res = await fetch(`https://api.themoviedb.org/3${endpoint}${endpoint.includes('?') ? '&' : '?'}api_key=${TMDB_KEY}&language=pt-BR`);
         return await res.json();
-    } catch { return { results: [] }; }
+    } catch {
+        return { results: [] };
+    }
 }
 
-function carregarHome() {
-    // Apenas um exemplo de carregamento na tela principal
-    fetchTMDB('/movie/popular').then(data => {
-        const container = document.getElementById('row-trending');
-        if(!container) return;
-        container.innerHTML = '';
-        data.results.forEach(item => {
-            if(!item.poster_path) return;
-            const div = document.createElement('div');
-            div.className = 'movie-card';
-            div.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}" alt="Poster">`;
-            div.onclick = () => abrirPlayer(item.id, 'movie');
-            container.appendChild(div);
-        });
+function renderCards(items, containerId, forceType = null) {
+    const container = document.getElementById(containerId);
+    if(!container || !items) return;
+    container.innerHTML = '';
+    items.forEach(item => {
+        if (!item.poster_path) return;
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+        card.innerHTML = `<img src="https://image.tmdb.org/t/p/w500${item.poster_path}" alt="${item.title || item.name}" loading="lazy">`;
+        card.onclick = () => abrirDetalhes(item.id, forceType || item.media_type || 'movie');
+        container.appendChild(card);
     });
 }
-function irParaHome() { document.getElementById('main-content').style.display = 'block'; }
+
+async function carregarHome() {
+    const dataTrending = await fetchTMDB('/trending/all/day');
+    if (dataTrending.results && dataTrending.results.length > 0) {
+        const hero = dataTrending.results[0];
+        document.getElementById('hero-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/original${hero.backdrop_path})`;
+        document.getElementById('hero-title').innerText = hero.title || hero.name;
+        document.getElementById('hero-desc').innerText = hero.overview;
+        document.getElementById('hero-play-btn').onclick = () => abrirPlayer(hero.id, hero.media_type || 'movie');
+        document.getElementById('hero-info-btn').onclick = () => abrirDetalhes(hero.id, hero.media_type || 'movie');
+    }
+    renderCards(dataTrending.results, 'row-trending');
+    const dataAcao = await fetchTMDB('/discover/movie?with_genres=28');
+    renderCards(dataAcao.results, 'row-acao', 'movie');
+    const dataFiccao = await fetchTMDB('/discover/movie?with_genres=878');
+    renderCards(dataFiccao.results, 'row-ficcao', 'movie');
+    const dataTerror = await fetchTMDB('/discover/movie?with_genres=27');
+    renderCards(dataTerror.results, 'row-terror', 'movie');
+    const dataRomance = await fetchTMDB('/discover/movie?with_genres=10749');
+    renderCards(dataRomance.results, 'row-romance', 'movie');
+}
+
+async function carregarFilmes() {
+    const pop = await fetchTMDB('/movie/popular');
+    renderCards(pop.results, 'row-filmes-populares', 'movie');
+    const acao = await fetchTMDB('/discover/movie?with_genres=28');
+    renderCards(acao.results, 'row-filmes-acao', 'movie');
+}
+
+async function carregarSeries() {
+    const pop = await fetchTMDB('/tv/popular');
+    renderCards(pop.results, 'row-series-populares', 'tv');
+}
+
+async function carregarAnimes() {
+    const animes = await fetchTMDB('/discover/tv?with_genres=16&with_original_language=ja');
+    renderCards(animes.results, 'row-animes-populares', 'tv');
+}
+
+async function carregarDoramas() {
+    const doramas = await fetchTMDB('/discover/tv?with_original_language=ko');
+    renderCards(doramas.results, 'row-doramas-populares', 'tv');
+}
+
+function abrirDetalhes(id, type = 'movie') {
+    fetchTMDB(`/${type}/${id}`).then(item => {
+        itemSelecionado = { ...item, type };
+        document.getElementById('modal-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/w1280${item.backdrop_path || item.poster_path})`;
+        document.getElementById('modal-title').innerText = item.title || item.name;
+        document.getElementById('modal-rating').innerText = item.vote_average ? `${item.vote_average.toFixed(1)} ★` : 'N/A';
+        document.getElementById('modal-year').innerText = (item.release_date || item.first_air_date || '').substring(0, 4);
+        document.getElementById('modal-overview').innerText = item.overview || "Sem sinopse disponível.";
+        document.getElementById('modal-play-btn').onclick = () => abrirPlayer(item.id, type);
+        document.getElementById('modal-details').style.display = 'flex';
+        document.body.classList.add('modal-open');
+    });
+}
+
+function fecharDetalhes() {
+    document.getElementById('modal-details').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function abrirPlayer(id, type = 'movie') {
+    const playerScreen = document.getElementById('streaming-player-screen');
+    const iframe = document.getElementById('videoPlayer');
+    iframe.src = `https://vidsrc.to/embed/${type}/${id}`;
+    playerScreen.style.display = 'flex';
+}
+
+document.getElementById('close-player-btn').onclick = () => {
+    const playerScreen = document.getElementById('streaming-player-screen');
+    const iframe = document.getElementById('videoPlayer');
+    iframe.src = '';
+    playerScreen.style.display = 'none';
+};
