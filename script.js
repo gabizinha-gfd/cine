@@ -1,5 +1,5 @@
 // ==========================================
-// CONFIGURAÇÃO FIREBASE E TMDB API
+// CONFIGURAÇÃO FIREBASE E TMDB
 // ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
@@ -20,15 +20,22 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 const PLAYER_CONFIG = { server: 'mgeb', color: 'e50914' };
 
+// =============== ATENÇÃO: CONTAS CRIADORES =============== 
+// Coloque aqui o(s) email(s) que terão acesso VIP Ilimitado GRÁTIS
+const EMAILS_CRIADORES = [
+    "roberci.azevedo@academico.ifpb.edu.br",
+    "seu_outro_email@exemplo.com"
+];
+// =========================================================
+
 let minhaListaIDs = new Set();
 let debounceSearchTimer;
 let isLoginMode = true;
 let selectedPlan = "";
-let selectedPrice = 0;
 let currentUserData = null; 
 
 // ==========================================
-// INTERFACE E MENUS (DESIGN MOBILE)
+// UI E MOBILE NAV
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -48,27 +55,20 @@ function lockScroll(lock) { document.body.classList.toggle('no-scroll', lock); }
 
 function resetViews() {
     ['hero-banner', 'search-results-section', 'watchlist-section', 'continue-watching-section', 'categories-container']
-        .forEach(id => {
-            const el = document.getElementById(id);
-            if(el) el.style.display = 'none';
-        });
+        .forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
 }
 
 function setActiveNav(navId) {
-    // Desktop Nav
     document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
     if(navId) {
         const el = document.getElementById(navId);
         if(el) el.classList.add('active');
     }
-    
-    // Mobile Bottom Nav Reset
     document.querySelectorAll('.mobile-bottom-nav a').forEach(el => el.classList.remove('active-nav'));
     if(navId === 'nav-inicio') document.getElementById('mob-nav-home').classList.add('active-nav');
     else if(navId && navId !== 'nav-inicio') document.getElementById('mob-nav-titulos').classList.add('active-nav');
 }
 
-// Submenu Mobile
 function toggleSubmenu() {
     const submenu = document.getElementById('mobile-submenu');
     if(submenu.style.display === 'flex' || submenu.classList.contains('open')) {
@@ -84,19 +84,16 @@ function irParaBuscaMobile() {
     document.querySelectorAll('.mobile-bottom-nav a').forEach(el => el.classList.remove('active-nav'));
     document.getElementById('mob-nav-search').classList.add('active-nav');
     resetViews();
-    
     const searchSection = document.getElementById('search-results-section');
     searchSection.style.display = 'block';
     
-    // Injeta barra de busca temporária na área principal para mobile
     const row = document.getElementById('search-results-row');
     row.innerHTML = `
         <div style="grid-column: 1/-1; padding: 20px;">
-            <input type="text" placeholder="O que deseja procurar?" 
-                   style="width: 100%; padding: 15px; border-radius: 20px; background: #222; color: #fff; border: 1px solid #444;"
+            <input type="text" placeholder="O que deseja buscar?" 
+                   style="width: 100%; padding: 15px; border-radius: 20px; background: #222; color: #fff; border: 1px solid #444; outline: none;"
                    oninput="pesquisarTitulos(event)">
-        </div>
-    `;
+        </div>`;
     document.getElementById('search-results-title').innerText = "Buscar";
 }
 
@@ -104,11 +101,9 @@ function togglePasswordVisibility() {
     const passInput = document.getElementById('auth-password');
     const btn = document.getElementById('btn-toggle-password');
     if (passInput.type === 'password') {
-        passInput.type = 'text';
-        btn.innerText = '🙈';
+        passInput.type = 'text'; btn.innerText = '🙈';
     } else {
-        passInput.type = 'password';
-        btn.innerText = '👁️';
+        passInput.type = 'password'; btn.innerText = '👁️';
     }
 }
 
@@ -132,7 +127,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     const btn = document.getElementById('auth-submit-btn');
     const err = document.getElementById('auth-error');
     
-    btn.disabled = true; err.innerText = 'Verificando dados...';
+    btn.disabled = true; err.innerText = 'Verificando...';
 
     try {
         if (isLoginMode) {
@@ -140,8 +135,13 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
             await userCred.user.updateProfile({ displayName: "Usuário CineNet" });
+            
+            // Check Criador VIP no registo
+            let isCreator = EMAILS_CRIADORES.includes(email);
             await db.collection('users').doc(userCred.user.uid).set({ 
-                hasActivePlan: false, planType: null, freeViewsLeft: 0
+                hasActivePlan: isCreator, 
+                planType: isCreator ? 'Criador VIP' : null, 
+                freeViewsLeft: isCreator ? 999999 : 0
             }, { merge: true });
         }
     } catch (error) {
@@ -161,15 +161,27 @@ auth.onAuthStateChanged(async (user) => {
             const btnUpgrade = document.getElementById('btn-upgrade-plan');
             const txtLimit = document.getElementById('user-free-limit-txt');
 
+            // Proteção extra: Força o estatuto VIP se o email estiver na lista de Criadores
+            if (EMAILS_CRIADORES.includes(user.email) && currentUserData.planType !== 'Criador VIP') {
+                await db.collection('users').doc(user.uid).set({
+                    hasActivePlan: true, planType: 'Criador VIP', freeViewsLeft: 999999
+                }, { merge: true });
+                return; // O snapshot vai disparar novamente
+            }
+
             if (currentUserData.hasActivePlan === true) {
                 document.getElementById('subscription-screen').style.display = 'none';
                 document.getElementById('app-screen').style.display = 'block';
                 
                 const planBadge = document.getElementById('user-plan-badge');
                 if(planBadge) planBadge.innerText = currentUserData.planType;
+                
                 if(currentUserData.planType === 'Grátis') {
                     if(btnUpgrade) btnUpgrade.style.display = 'block';
-                    if(txtLimit) { txtLimit.style.display = 'block'; txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft}`; }
+                    if(txtLimit) { txtLimit.style.display = 'block'; txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft} filmes`; }
+                } else {
+                    if(btnUpgrade) btnUpgrade.style.display = 'none';
+                    if(txtLimit) txtLimit.style.display = 'none';
                 }
 
                 await carregarWatchlistIDs(user.uid);
@@ -186,19 +198,18 @@ auth.onAuthStateChanged(async (user) => {
         document.getElementById('app-screen').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'none';
         minhaListaIDs.clear(); currentUserData = null;
+        const btn = document.getElementById('auth-submit-btn');
+        if(btn) btn.disabled = false;
         lockScroll(false); 
     }
 });
 
 // ==========================================
-// MERCADO PAGO E PLANOS
+// PAGAMENTO PIX E QR CODE
 // ==========================================
-const mp = new MercadoPago('TEST-SUA-PUBLIC-KEY-AQUI', { locale: 'pt-BR' });
-let cardPaymentBrickController;
-
 function escolherPlano(planoNome, precoStr) {
     if (planoNome === 'Grátis') processarPlanoGratis();
-    else { selectedPrice = parseFloat(precoStr); abrirPagamento(planoNome, selectedPrice); }
+    else abrirPagamentoPIX(planoNome, precoStr);
 }
 
 async function processarPlanoGratis() {
@@ -214,44 +225,56 @@ async function processarPlanoGratis() {
     }
 }
 
-async function abrirPagamento(planoNome, precoFloat) {
+function abrirPagamentoPIX(planoNome, preco) {
     selectedPlan = planoNome;
     document.getElementById('selected-plan-name').innerText = planoNome;
-    document.getElementById('selected-plan-price').innerText = precoFloat.toFixed(2).replace('.', ',');
+    document.getElementById('selected-plan-price').innerText = preco.replace('.', ',');
     document.getElementById('payment-modal').style.display = 'flex';
     lockScroll(true);
-
-    if (cardPaymentBrickController) cardPaymentBrickController.unmount();
-    
-    const settings = {
-        initialization: { amount: precoFloat },
-        customization: { visual: { style: { theme: 'dark' } }, paymentMethods: { maxInstallments: 1 } },
-        callbacks: {
-            onReady: () => {  },
-            onSubmit: (cardFormData) => {
-                return new Promise((resolve, reject) => {
-                    showToast("Processando pagamento...");
-                    setTimeout(async () => {
-                        try {
-                            await db.collection('users').doc(auth.currentUser.uid).set({
-                                hasActivePlan: true, planType: selectedPlan, freeViewsLeft: 9999,
-                                subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
-                            }, { merge: true });
-                            fecharPagamento();
-                            showToast(`Sucesso! Bem-vindo ao plano ${selectedPlan}.`);
-                            resolve();
-                        } catch(e) { reject(); }
-                    }, 2000);
-                });
-            },
-            onError: (error) => {}
-        }
-    };
-    const bricksBuilder = mp.bricks();
-    cardPaymentBrickController = await bricksBuilder.create('cardPayment', 'payment-brick-container', settings);
 }
 
-function fecharPagamento() { document.getElementById('payment-modal').style.display = 'none'; lockScroll(false); }
+function fecharPagamento() { 
+    document.getElementById('payment-modal').style.display = 'none'; 
+    lockScroll(false); 
+}
+
+function copiarPIX() {
+    const inputPix = document.getElementById("pix-key-input");
+    inputPix.select();
+    inputPix.setSelectionRange(0, 99999); // Mobile
+    try {
+        navigator.clipboard.writeText(inputPix.value);
+        showToast("Chave PIX copiada!");
+    } catch (e) {
+        document.execCommand("copy"); // Fallback
+        showToast("Chave PIX copiada!");
+    }
+}
+
+function confirmarPagamentoPIX() {
+    const btn = document.getElementById('payment-submit-btn');
+    btn.innerText = 'Validando PIX...';
+    btn.disabled = true;
+
+    // Simulação do sistema validando o PIX
+    setTimeout(async () => {
+        try {
+            await db.collection('users').doc(auth.currentUser.uid).set({
+                hasActivePlan: true, planType: selectedPlan, freeViewsLeft: 999999,
+                subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            
+            fecharPagamento();
+            btn.innerText = 'Já fiz o pagamento';
+            btn.disabled = false;
+            showToast(`Sucesso! Bem-vindo ao plano ${selectedPlan}.`);
+        } catch(e) {
+            btn.innerText = 'Já fiz o pagamento';
+            btn.disabled = false;
+            showToast("Aguardando confirmação do banco...");
+        }
+    }, 2000);
+}
 
 function abrirTelaPlanos() {
     fecharModalPerfil();
@@ -310,7 +333,7 @@ async function enviarMensagemBot(txt) {
             const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
             const title = item.title || item.name;
             const html = `Recomendação para si:
-                <div style="display:flex;gap:12px;margin-top:10px;background:#222;padding:10px;border-radius:8px;cursor:pointer;border:1px solid #444;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
+                <div style="display:flex;gap:12px;margin-top:10px;background:var(--secondary-bg);padding:10px;border-radius:8px;cursor:pointer;border:1px solid var(--border-color);" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                     <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
                     <div style="font-size:0.9rem; color:#fff;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
                 </div>`;
@@ -320,7 +343,7 @@ async function enviarMensagemBot(txt) {
 }
 
 // ==========================================
-// GESTÃO DE ABAS E TMDB
+// ABAS TMDB
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
@@ -333,8 +356,7 @@ async function fetchTMDB(endpoint) {
 
 async function carregarAba(abaId, event) {
     if(event) event.preventDefault();
-    resetViews();
-    setActiveNav('nav-' + abaId);
+    resetViews(); setActiveNav('nav-' + abaId);
     
     const searchInput = document.getElementById('search-input');
     if(searchInput) searchInput.value = '';
@@ -492,7 +514,6 @@ async function toggleMinhaLista(data) {
             b.className = `card-watchlist-btn ${minhaListaIDs.has(id) ? 'active' : ''}`;
             b.innerText = minhaListaIDs.has(id) ? '✓' : '+';
         });
-
         if (document.getElementById('watchlist-section').style.display === 'block') carregarSecaoMinhaLista(user.uid);
     } catch(e) { }
 }
@@ -544,10 +565,13 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER 
+// PLAYER COM BARREIRA (CRIAÇÃO VIP IGNORA)
 // ==========================================
 async function podeAssistir() {
     if (!currentUserData) return false;
+    
+    if (currentUserData.planType === 'Criador VIP') return true; // Criador não tem limite nenhum
+
     if (currentUserData.planType === 'Grátis') {
         if (currentUserData.freeViewsLeft > 0) {
             try {
