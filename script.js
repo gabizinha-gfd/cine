@@ -50,7 +50,6 @@ function resetViews() {
         });
 }
 
-// Bloquear fundo ao abrir modais (especial para iOS)
 function lockScroll(lock) {
     if (lock) {
         document.body.classList.add('no-scroll');
@@ -183,19 +182,23 @@ async function enviarMensagemBot(txt) {
     else if (l.includes('comédia') || l.includes('comedia')) endpoint = '/discover/movie?with_genres=35';
     else if (l.includes('ficção') || l.includes('sci-fi')) endpoint = '/discover/movie?with_genres=878';
 
-    const data = await fetchTMDB(endpoint);
-    if (data.length > 0) {
-        const item = data[Math.floor(Math.random() * data.length)];
-        const img = item.poster_path ? `${TMDB_IMAGE_BASE}${item.poster_path}` : 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80';
-        const title = item.title || item.name;
+    try {
+        const data = await fetchTMDB(endpoint);
+        const validData = data.filter(i => i.poster_path);
         
-        const html = `Aqui está uma excelente recomendação:
-            <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
-                <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
-                <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
-            </div>`;
-        setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
-    }
+        if (validData.length > 0) {
+            const item = validData[Math.floor(Math.random() * validData.length)];
+            const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
+            const title = item.title || item.name;
+            
+            const html = `Recomendo este título para si:
+                <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
+                    <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
+                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
+                </div>`;
+            setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
+        }
+    } catch(e) {}
 }
 
 // ==========================================
@@ -226,16 +229,18 @@ async function carregarInicio() {
     document.getElementById('hero-banner').style.display = 'flex';
     document.getElementById('categories-container').style.display = 'block';
 
-    const top = await fetchTMDB('/movie/popular');
-    if (top.length > 0) configurarHero(top[0]);
+    try {
+        const top = await fetchTMDB('/movie/popular');
+        if (top.length > 0) configurarHero(top[0]);
 
-    document.getElementById('categories-container').innerHTML = '';
-    for (const cat of CATEGORIAS) {
-        const items = await fetchTMDB(cat.e);
-        if(items.length > 0) renderizarCarrossel(cat.t, items, cat.type);
-    }
+        document.getElementById('categories-container').innerHTML = '';
+        for (const cat of CATEGORIAS) {
+            const items = await fetchTMDB(cat.e);
+            if(items.length > 0) renderizarCarrossel(cat.t, items, cat.type);
+        }
 
-    if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
+        if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
+    } catch(e) {}
 }
 
 function configurarHero(item) {
@@ -302,15 +307,17 @@ async function pesquisarTitulos(e) {
         document.getElementById('search-results-section').style.display = 'block';
         document.getElementById('search-results-title').innerText = `Resultados para: "${q}"`;
         
-        const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(q)}`);
-        const row = document.getElementById('search-results-row');
-        row.innerHTML = '';
-        
-        if(res.length === 0) {
-            row.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">Nenhum título encontrado.</p>';
-            return;
-        }
-        res.forEach(i => { if (i.poster_path) row.innerHTML += criarCardHTML(i, i.media_type || 'movie'); });
+        try {
+            const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(q)}`);
+            const row = document.getElementById('search-results-row');
+            row.innerHTML = '';
+            
+            if(res.length === 0) {
+                row.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">Nenhum título encontrado.</p>';
+                return;
+            }
+            res.forEach(i => { if (i.poster_path) row.innerHTML += criarCardHTML(i, i.media_type || 'movie'); });
+        } catch(e) {}
     }, 400);
 }
 
@@ -335,11 +342,13 @@ async function filtrarCategoria(cat, element, event) {
     };
 
     const d = map[cat];
-    const items = await fetchTMDB(d.e);
-    c.innerHTML = '';
-    
-    if(items.length > 0) configurarHero(items[0]);
-    renderizarCarrossel(d.t, items, d.type);
+    try {
+        const items = await fetchTMDB(d.e);
+        c.innerHTML = '';
+        
+        if(items.length > 0) configurarHero(items[0]);
+        renderizarCarrossel(d.t, items, d.type);
+    } catch(e) {}
 }
 
 // ==========================================
@@ -431,7 +440,7 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER & MODAL SÉRIES (FULLSCREEN E MOBILE)
+// PLAYER & MODAL SÉRIES (FULLSCREEN BLINDADO)
 // ==========================================
 function assistirFilme(id, title, img) {
     abrirVideo(`https://mgeb.top/embed/${id}?player=vidstack#color:${PLAYER_CONFIG.color}`, id, title, img);
@@ -451,13 +460,18 @@ function abrirVideo(url, id, title, img) {
     container.style.display = 'flex';
     lockScroll(true);
 
-    // Cross-browser Fullscreen
+    // Cross-browser Fullscreen seguro
     try {
-        if (container.requestFullscreen) container.requestFullscreen().catch(e => console.log(e));
-        else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-        else if (container.msRequestFullscreen) container.msRequestFullscreen();
+        if (container.requestFullscreen) {
+            container.requestFullscreen().catch(() => {});
+        } else if (container.webkitRequestFullscreen) {
+            container.webkitRequestFullscreen(); // Safari/iOS
+        } else if (container.msRequestFullscreen) {
+            container.msRequestFullscreen(); // Edge Legacy
+        } else if (container.mozRequestFullScreen) {
+            container.mozRequestFullScreen(); // Firefox
+        }
         
-        // Bloqueio de rotação para telemóveis (tenta rodar para horizontal)
         if (screen.orientation && screen.orientation.lock) {
             screen.orientation.lock('landscape').catch(() => {});
         }
@@ -483,6 +497,7 @@ function fecharPlayer() {
         if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
             if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
             else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
             else if (document.msExitFullscreen) document.msExitFullscreen();
         }
         if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
@@ -522,7 +537,7 @@ async function carregarEpisodios(id, season, title, img) {
                     <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Reproduzir episódio'}</p></div>
                 </div>`;
         });
-    } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar.</div>'; }
+    } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar episódios.</div>'; }
 }
 
 function fecharModalEpisodios() { 
