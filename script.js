@@ -1,5 +1,5 @@
 // ==========================================
-// CONFIGURAÇÕES GERAIS E API
+// CONFIGURAÇÕES GERAIS E CHAVES
 // ==========================================
 const firebaseConfig = {
     apiKey: "AIzaSyAfPWvnGdvPKZ_lrVwOuag14WHLY9AgML8",
@@ -16,16 +16,20 @@ const db = firebase.database();
 const auth = firebase.auth();
 
 const TMDB_KEY = "17c56e3825d7fbae6581866083d0d778";
-const ADMIN_EMAIL = "roberci.azevedo@academico.ifpb.edu.br"; 
+const PIX_KEY = "83993967296";
+
+// AQUI: Os E-mails com acesso total e Painel Admin
+const EMAILS_CRIADORES = ["roberci.azevedo@academico.ifpb.edu.br"];
 
 let isLoginMode = true;
 let currentUserUID = null;
 let statusAssinatura = "inativo"; 
 let planoAtual = null;
 let debounceTimer;
+let biblioteca = { watchlist: {} };
 
 // ==========================================
-// UTILITÁRIOS
+// UTILITÁRIOS E TOASTS
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -38,11 +42,10 @@ function showToast(msg) {
 
 window.addEventListener('scroll', () => {
     const nav = document.querySelector('.navbar');
-    if (nav) {
-        if (window.scrollY > 50) nav.classList.add('scrolled');
-        else nav.classList.remove('scrolled');
-    }
+    if (nav) nav.classList.toggle('scrolled', window.scrollY > 10);
 });
+
+function lockScroll(lock) { document.body.classList.toggle('no-scroll', lock); }
 
 function hojeStr() {
     const d = new Date();
@@ -74,16 +77,21 @@ document.getElementById('auth-form')?.addEventListener('submit', (e) => {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
     const err = document.getElementById('auth-error');
-    err.innerText = "Processando...";
+    err.innerText = "A processar...";
     err.style.display = 'block';
 
     if (isLoginMode) {
         auth.signInWithEmailAndPassword(email, password).catch(e => err.innerText = "Erro: " + e.message);
     } else {
         auth.createUserWithEmailAndPassword(email, password).then((userCred) => {
+            // Inicializa inativo. Se for criador, a próxima função resolve
             db.ref('users/' + userCred.user.uid + '/assinatura').set({ status: 'inativo', plano: null });
         }).catch(e => err.innerText = "Erro: " + e.message);
     }
+});
+
+document.getElementById('btn-guest-auth')?.addEventListener('click', () => {
+    auth.signInAnonymously().catch(e => console.log(e));
 });
 
 function logout() { auth.signOut().then(() => window.location.reload()); }
@@ -96,16 +104,34 @@ auth.onAuthStateChanged(user => {
         currentUserUID = user.uid;
         document.getElementById('auth-screen').style.display = 'none';
         
-        if (user.email === ADMIN_EMAIL) document.getElementById('nav-admin-btn').style.display = 'block';
+        // Verifica se é Conta de Criador (Admin)
+        const isCreator = EMAILS_CRIADORES.includes(user.email);
+        
+        if (isCreator) {
+            document.getElementById('nav-admin-btn').style.display = 'inline-block';
+            db.ref('users/' + user.uid + '/assinatura').update({ status: 'ativo', plano: 'Criador VIP' });
+        } else {
+            document.getElementById('nav-admin-btn').style.display = 'none';
+        }
 
-        // Escuta o Status da Assinatura no Banco de Dados
+        // Listener da Assinatura
         db.ref('users/' + user.uid + '/assinatura').on('value', snapshot => {
-            const data = snapshot.val();
-            statusAssinatura = data ? data.status : "inativo";
-            planoAtual = data ? data.plano : null;
-            
+            const data = snapshot.val() || { status: 'inativo' };
+            statusAssinatura = data.status;
+            planoAtual = data.plano;
             atualizarUIBaseadoNoStatus(statusAssinatura, planoAtual);
         });
+
+        // Listener da Watchlist (Minha Lista)
+        db.ref('users/' + user.uid + '/biblioteca').on('value', snapshot => {
+            biblioteca = snapshot.val() || { watchlist: {} };
+            if(!biblioteca.watchlist) biblioteca.watchlist = {};
+            
+            if(document.getElementById('section-watchlist').style.display === 'block') {
+                renderizarWatchlist();
+            }
+        });
+
     } else {
         currentUserUID = null;
         document.getElementById('auth-screen').style.display = 'flex';
@@ -118,7 +144,7 @@ function atualizarUIBaseadoNoStatus(status, plano) {
     const badge = document.getElementById('user-sub-badge');
     if (badge) {
         if (status === 'ativo') {
-            badge.innerText = plano === 'Grátis' ? '🆓 Grátis' : '⭐ VIP Premium';
+            badge.innerText = (plano === 'Grátis') ? '🆓 Grátis' : '⭐ VIP Premium';
             badge.className = 'sub-badge ativo';
         } else if (status === 'pendente') {
             badge.innerText = '⏳ Análise PIX';
@@ -149,36 +175,48 @@ function atualizarUIBaseadoNoStatus(status, plano) {
 }
 
 // ==========================================
-// FLUXO DE COMPRA & PIX
+// FLUXO DE COMPRA & MUDAR PLANO
 // ==========================================
 function assinarPlanoGratis() {
     db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'ativo', plano: 'Grátis' });
     showToast("Plano Grátis ativado!");
 }
 
-function abrirModalPagamento() { document.getElementById('paymentModal').style.display = 'flex'; document.body.classList.add('modal-open'); }
-function fecharModalPagamento() { document.getElementById('paymentModal').style.display = 'none'; document.body.classList.remove('modal-open'); }
+function abrirModalPagamento() { 
+    document.getElementById('paymentModal').style.display = 'flex'; 
+    lockScroll(true); 
+}
+
+function fecharModalPagamento() { 
+    document.getElementById('paymentModal').style.display = 'none'; 
+    lockScroll(false); 
+}
 
 function copiarChavePix() {
     const inputPix = document.getElementById("pix-key-input");
     inputPix.select(); inputPix.setSelectionRange(0, 99999);
-    try { navigator.clipboard.writeText(inputPix.value); showToast("Chave copiada!"); } 
-    catch(e) { document.execCommand("copy"); showToast("Chave copiada!"); }
+    try { navigator.clipboard.writeText(inputPix.value); showToast("Chave PIX copiada!"); } 
+    catch(e) { document.execCommand("copy"); showToast("Chave PIX copiada!"); }
 }
 
 function solicitarConfirmacaoPix() {
     const user = auth.currentUser;
     const btn = document.getElementById('payment-submit-btn');
-    btn.disabled = true; btn.innerText = "Enviando...";
+    btn.disabled = true; btn.innerText = "A Enviar...";
 
-    const pedido = { uid: user.uid, email: user.email, data: new Date().toLocaleString('pt-BR'), status: "pendente" };
+    const pedido = { 
+        uid: user.uid, 
+        email: user.email || 'Convidado', 
+        data: new Date().toLocaleString('pt-BR'), 
+        status: "pendente" 
+    };
 
     db.ref('users/' + user.uid + '/assinatura').set({ status: 'pendente' }).then(() => {
         return db.ref('pagamentos_pendentes/' + user.uid).set(pedido);
     }).then(() => {
         fecharModalPagamento();
         btn.disabled = false; btn.innerText = "Já fiz a transferência";
-        showToast("Pedido enviado! O Admin irá aprovar em breve.");
+        showToast("Pedido enviado! O Admin irá aprovar.");
     }).catch(err => {
         showToast("Erro.");
         btn.disabled = false; btn.innerText = "Já fiz a transferência";
@@ -187,22 +225,33 @@ function solicitarConfirmacaoPix() {
 
 function abrirTelaPlanosDeUpgrade() {
     fecharModalPerfil();
-    db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'inativo' });
+    // Coloca status inativo para forçar tela de planos
+    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'inativo' });
     document.getElementById('btn-cancel-upgrade').style.display = 'block';
 }
+
 function cancelarUpgrade() {
-    db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'ativo', plano: 'Grátis' });
+    // Retorna ao grátis se cancelar o upgrade
+    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'ativo' });
 }
 
 // ==========================================
 // PAINEL DE ADMINISTRAÇÃO (ANTI-FRAUDE)
 // ==========================================
-function abrirPainelAdmin() { document.getElementById('adminModal').style.display = 'flex'; document.body.classList.add('modal-open'); carregarPagamentosPendentes(); }
-function fecharPainelAdmin() { document.getElementById('adminModal').style.display = 'none'; document.body.classList.remove('modal-open'); }
+function abrirPainelAdmin() { 
+    document.getElementById('adminModal').style.display = 'flex'; 
+    lockScroll(true); 
+    carregarPagamentosPendentes(); 
+}
+
+function fecharPainelAdmin() { 
+    document.getElementById('adminModal').style.display = 'none'; 
+    lockScroll(false); 
+}
 
 function carregarPagamentosPendentes() {
     const lista = document.getElementById('admin-payments-list');
-    lista.innerHTML = '<p style="text-align:center; color:#aaa;">Carregando...</p>';
+    lista.innerHTML = '<p style="text-align:center; color:#aaa;">A carregar...</p>';
 
     db.ref('pagamentos_pendentes').on('value', snapshot => {
         lista.innerHTML = '';
@@ -228,15 +277,15 @@ function carregarPagamentosPendentes() {
                 }
             });
         }
-        if (!temPendente) lista.innerHTML = '<p style="text-align:center; color:#2ecc71;">Tudo limpo! Nenhum PIX pendente.</p>';
+        if (!temPendente) lista.innerHTML = '<p style="text-align:center; color:#2ecc71;">Tudo limpo! Nenhum pagamento pendente.</p>';
     });
 }
 
 function aprovarPix(uid) {
-    if(confirm("O PIX caiu na conta?")) {
+    if(confirm("Confirmar que o dinheiro entrou na conta PIX?")) {
         db.ref('pagamentos_pendentes/' + uid).update({ status: 'aprovado' });
         db.ref('users/' + uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
-        showToast("Usuário VIP Liberado!");
+        showToast("Usuário Aprovado!");
     }
 }
 
@@ -244,12 +293,12 @@ function rejeitarPix(uid) {
     if(confirm("Rejeitar pagamento?")) {
         db.ref('pagamentos_pendentes/' + uid).update({ status: 'rejeitado' });
         db.ref('users/' + uid + '/assinatura').set({ status: 'inativo' });
-        showToast("Rejeitado.");
+        showToast("Pagamento rejeitado.");
     }
 }
 
 // ==========================================
-// ABAS E NAVEGAÇÃO INTERNA
+// ABAS E NAVEGAÇÃO
 // ==========================================
 function esconderSeccoes() {
     const seccoes = ['section-home', 'section-movies', 'section-series', 'section-animes', 'section-doramas', 'section-search', 'section-watchlist', 'section-chat'];
@@ -273,20 +322,19 @@ function toggleSubmenu() {
     sub.classList.toggle('open');
 }
 
-// Funções de clique das abas
 function irParaHome() { esconderSeccoes(); setNavActive('nav-home'); document.getElementById('section-home').style.display = 'block'; carregarHome(); }
 function irParaFilmes() { esconderSeccoes(); setNavActive('nav-movies'); document.getElementById('section-movies').style.display = 'block'; carregarAbaFilmes(); }
 function irParaSeries() { esconderSeccoes(); setNavActive('nav-series'); document.getElementById('section-series').style.display = 'block'; carregarAbaSeries(); }
 function irParaAnimes() { esconderSeccoes(); setNavActive('nav-animes'); document.getElementById('section-animes').style.display = 'block'; carregarAbaAnimes(); }
 function irParaDoramas() { esconderSeccoes(); setNavActive('nav-doramas'); document.getElementById('section-doramas').style.display = 'block'; carregarAbaDoramas(); }
-function irParaWatchlist() { esconderSeccoes(); setNavActive(''); document.getElementById('section-watchlist').style.display = 'block'; carregarWatchlist(); }
+function irParaWatchlist() { esconderSeccoes(); setNavActive(''); document.getElementById('section-watchlist').style.display = 'block'; renderizarWatchlist(); }
 function irParaChat() { esconderSeccoes(); setNavActive('section-chat'); document.getElementById('section-chat').style.display = 'block'; }
 
 // ==========================================
 // LIMITES DA VERSÃO GRÁTIS (PESQUISA)
 // ==========================================
 function podePesquisar() {
-    if (planoAtual === 'VIP Premium' || auth.currentUser?.email === ADMIN_EMAIL) return true;
+    if (planoAtual === 'VIP Premium' || planoAtual === 'Criador VIP') return true;
     
     const h = hojeStr();
     let contagens = JSON.parse(localStorage.getItem('cine_buscas') || '{}');
@@ -305,8 +353,9 @@ function podePesquisar() {
 }
 
 function irParaBusca() { 
-    esconderSeccoes(); setNavActive('section-search'); document.getElementById('section-search').style.display = 'block'; 
-    document.getElementById('search-limit-info').innerHTML = ''; // Limpa aviso ao entrar
+    esconderSeccoes(); setNavActive('section-search'); 
+    document.getElementById('section-search').style.display = 'block'; 
+    document.getElementById('search-limit-info').innerHTML = ''; 
 }
 
 document.getElementById('main-search-input')?.addEventListener('input', (e) => iniciarBusca(e.target.value));
@@ -322,19 +371,64 @@ function iniciarBusca(query) {
         if (!podePesquisar()) return;
         
         const container = document.getElementById('search-grid');
-        container.innerHTML = '<p>Buscando...</p>';
+        container.innerHTML = '<p style="color:#aaa;">Buscando...</p>';
         const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
         
         if (res.results && res.results.length > 0) {
             renderizar(res.results.filter(i => i.poster_path), 'search-grid');
         } else {
-            container.innerHTML = '<p>Nada encontrado.</p>';
+            container.innerHTML = '<p style="color:#aaa;">Nada encontrado.</p>';
         }
     }, 800);
 }
 
 // ==========================================
-// TMDB E RENDERIZAÇÃO DE CATÁLOGO
+// MINHA LISTA (WATCHLIST) 100% FUNCIONAL
+// ==========================================
+let itemDetalheAtual = null;
+
+function alternarWatchlist() {
+    if(!itemDetalheAtual) return;
+    const id = itemDetalheAtual.id;
+    
+    if (biblioteca.watchlist[id]) {
+        delete biblioteca.watchlist[id];
+        showToast("Removido da Lista.");
+    } else {
+        biblioteca.watchlist[id] = itemDetalheAtual;
+        showToast("Adicionado à Lista!");
+    }
+    
+    // Grava no Firebase
+    if (currentUserUID) {
+        db.ref('users/' + currentUserUID + '/biblioteca/watchlist').set(biblioteca.watchlist);
+    }
+    
+    // Atualiza o botão no modal
+    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
+}
+
+function renderizarWatchlist() {
+    const grid = document.getElementById('watchlist-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    const items = Object.values(biblioteca.watchlist);
+    if(items.length === 0) {
+        grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1;">A sua lista está vazia.</p>';
+    } else {
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'movie-card';
+            card.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}">`;
+            card.onclick = () => abrirDetalhes(item.id, item.type || item.media_type);
+            grid.appendChild(card);
+        });
+    }
+}
+
+// ==========================================
+// TMDB E RENDERIZAÇÃO
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
@@ -344,7 +438,7 @@ async function fetchTMDB(endpoint) {
     } catch { return { results: [] }; }
 }
 
-function renderizar(items, containerId) {
+function renderizar(items, containerId, forceType = null) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
@@ -353,12 +447,12 @@ function renderizar(items, containerId) {
         const div = document.createElement('div');
         div.className = 'movie-card';
         div.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}" loading="lazy">`;
-        div.onclick = () => abrirDetalhes(item.id, item.media_type || (item.first_air_date ? 'tv' : 'movie'));
+        div.onclick = () => abrirDetalhes(item.id, forceType || item.media_type || (item.first_air_date ? 'tv' : 'movie'));
         container.appendChild(div);
     });
 }
 
-async function renderizarRow(titulo, endpoint, containerMaster) {
+async function renderizarRow(titulo, endpoint, containerMaster, type) {
     const master = document.getElementById(containerMaster);
     const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
     
@@ -374,7 +468,7 @@ async function renderizarRow(titulo, endpoint, containerMaster) {
     master.appendChild(wrapper);
 
     const data = await fetchTMDB(endpoint);
-    renderizar(data.results, rowId);
+    renderizar(data.results, rowId, type);
 }
 
 function scrollCarousel(id, dir) {
@@ -382,7 +476,6 @@ function scrollCarousel(id, dir) {
     if(el) el.scrollBy({ left: (el.clientWidth * 0.8) * dir, behavior: 'smooth' });
 }
 
-// Carregamentos Específicos
 async function carregarHome() {
     const heroData = await fetchTMDB('/trending/all/day');
     if(heroData.results && heroData.results.length > 0) {
@@ -396,44 +489,42 @@ async function carregarHome() {
     
     document.getElementById('home-catalog').innerHTML = '';
     renderizarRow("Destaques", "/trending/all/week", 'home-catalog');
-    renderizarRow("Filmes de Ação", "/discover/movie?with_genres=28", 'home-catalog');
-    renderizarRow("Séries Populares", "/tv/popular", 'home-catalog');
+    renderizarRow("Filmes de Ação", "/discover/movie?with_genres=28", 'home-catalog', 'movie');
+    renderizarRow("Séries Populares", "/tv/popular", 'home-catalog', 'tv');
 }
 
 function carregarAbaFilmes() {
     document.getElementById('movies-catalog').innerHTML = '';
-    renderizarRow("Populares", "/movie/popular", 'movies-catalog');
-    renderizarRow("Terror", "/discover/movie?with_genres=27", 'movies-catalog');
-    renderizarRow("Comédia", "/discover/movie?with_genres=35", 'movies-catalog');
+    renderizarRow("Populares", "/movie/popular", 'movies-catalog', 'movie');
+    renderizarRow("Terror", "/discover/movie?with_genres=27", 'movies-catalog', 'movie');
+    renderizarRow("Comédia", "/discover/movie?with_genres=35", 'movies-catalog', 'movie');
 }
 
 function carregarAbaSeries() {
     document.getElementById('series-catalog').innerHTML = '';
-    renderizarRow("Em Alta", "/tv/popular", 'series-catalog');
-    renderizarRow("Drama", "/discover/tv?with_genres=18", 'series-catalog');
-    renderizarRow("Ficção Científica", "/discover/tv?with_genres=10765", 'series-catalog');
+    renderizarRow("Em Alta", "/tv/popular", 'series-catalog', 'tv');
+    renderizarRow("Drama", "/discover/tv?with_genres=18", 'series-catalog', 'tv');
+    renderizarRow("Ficção Científica", "/discover/tv?with_genres=10765", 'series-catalog', 'tv');
 }
 
 function carregarAbaAnimes() {
     document.getElementById('animes-catalog').innerHTML = '';
-    renderizarRow("Populares", "/discover/tv?with_genres=16&with_original_language=ja", 'animes-catalog');
-    renderizarRow("Ação Anime", "/discover/tv?with_genres=16,10759&with_original_language=ja", 'animes-catalog');
+    renderizarRow("Populares", "/discover/tv?with_genres=16&with_original_language=ja", 'animes-catalog', 'tv');
+    renderizarRow("Ação Anime", "/discover/tv?with_genres=16,10759&with_original_language=ja", 'animes-catalog', 'tv');
 }
 
 function carregarAbaDoramas() {
     document.getElementById('doramas-catalog').innerHTML = '';
-    renderizarRow("Doramas Populares", "/discover/tv?with_original_language=ko", 'doramas-catalog');
-    renderizarRow("Romance Coreano", "/discover/tv?with_original_language=ko&with_genres=10749", 'doramas-catalog');
+    renderizarRow("Doramas Populares", "/discover/tv?with_original_language=ko", 'doramas-catalog', 'tv');
+    renderizarRow("Romance Coreano", "/discover/tv?with_original_language=ko&with_genres=10749", 'doramas-catalog', 'tv');
 }
 
 // ==========================================
 // MODAL DE DETALHES E PLAYER
 // ==========================================
-let tempItem = null;
-
 async function abrirDetalhes(id, type) {
     const data = await fetchTMDB(`/${type}/${id}`);
-    tempItem = { id, type, poster_path: data.poster_path };
+    itemDetalheAtual = { id, type, poster_path: data.poster_path, title: data.title || data.name }; // Guarda para a Watchlist
     
     document.getElementById('modal-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/w780${data.backdrop_path || data.poster_path})`;
     document.getElementById('modal-title').innerText = data.title || data.name;
@@ -441,6 +532,9 @@ async function abrirDetalhes(id, type) {
     document.getElementById('modal-rating').innerText = data.vote_average ? data.vote_average.toFixed(1) : '';
     document.getElementById('modal-overview').innerText = data.overview;
     
+    // Atualiza botão Watchlist
+    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
+
     document.getElementById('modal-play-btn').onclick = () => abrirPlayer(id, type);
 
     const epContainer = document.getElementById('episodes-container');
@@ -452,7 +546,7 @@ async function abrirDetalhes(id, type) {
             sel.innerHTML += `<option value="${s.season_number}">${s.name}</option>`;
         });
         sel.onchange = () => carregarEpsLista(id, sel.value);
-        if(data.seasons.length > 0) carregarEpsLista(id, data.seasons[data.seasons[0].season_number === 0 ? 1 : 0].season_number);
+        if(data.seasons.length > 0) carregarEpsLista(id, data.seasons[data.seasons[0].season_number === 0 && data.seasons.length > 1 ? 1 : 0].season_number);
     } else {
         epContainer.style.display = 'none';
     }
@@ -463,18 +557,18 @@ async function abrirDetalhes(id, type) {
 
 async function carregarEpsLista(tvId, season) {
     const lista = document.getElementById('modal-episodes-list');
-    lista.innerHTML = 'Carregando...';
+    lista.innerHTML = '<p style="color:#aaa;">Carregando...</p>';
     const data = await fetchTMDB(`/tv/${tvId}/season/${season}`);
     lista.innerHTML = '';
     if (data.episodes) {
         data.episodes.forEach(ep => {
             const img = ep.still_path ? `https://image.tmdb.org/t/p/w200${ep.still_path}` : '';
             lista.innerHTML += `
-                <div class="episode-item" onclick="abrirPlayerEp('${tvId}', '${season}', '${ep.episode_number}')">
-                    ${img ? `<img src="${img}">` : ''}
+                <div class="episode-item" onclick="abrirPlayerEp('${tvId}', '${season}', '${ep.episode_number}')" style="display:flex; gap:15px; margin-bottom:10px; cursor:pointer;">
+                    ${img ? `<img src="${img}" style="width:120px; border-radius:4px;">` : ''}
                     <div>
-                        <h4 style="font-size:0.9em; margin-bottom:5px;">${ep.episode_number}. ${ep.name}</h4>
-                        <p style="font-size:0.8em; color:#888;">▶ Clique para assistir</p>
+                        <h4 style="font-size:0.9em; margin-bottom:5px; color:#fff;">${ep.episode_number}. ${ep.name}</h4>
+                        <p style="font-size:0.8em; color:#888;">▶ Assistir</p>
                     </div>
                 </div>`;
         });
@@ -483,7 +577,7 @@ async function carregarEpsLista(tvId, season) {
 
 function fecharDetalhes() { document.getElementById('modal-details').style.display = 'none'; document.body.classList.remove('modal-open'); }
 
-// Assistir 100% livre
+// Todos podem assistir 
 function abrirPlayer(id, type) {
     const iframe = document.getElementById('videoPlayer');
     iframe.src = `https://mgeb.top/embed/${type === 'tv' ? 'tv/'+id+'/1/1' : 'movie/'+id}?player=vidstack#color=e50914`;
@@ -518,14 +612,14 @@ function enviarChat() {
             const item = res.results[0];
             msgs.innerHTML += `
                 <div class="message bot-message" style="display:flex; gap:10px; cursor:pointer;" onclick="abrirDetalhes(${item.id}, '${item.media_type || 'movie'}')">
-                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px;">
+                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px; width:50px;">
                     <div>
                         <strong style="color:var(--primary)">${item.title || item.name}</strong>
-                        <p style="font-size:0.8em; margin-top:5px;">Clique para ver mais.</p>
+                        <p style="font-size:0.8em; margin-top:5px; color:#aaa;">Clique para ver mais.</p>
                     </div>
                 </div>`;
         } else {
-            msgs.innerHTML += `<div class="message bot-message">Desculpa, não encontrei nada com esse nome. Tenta usar palavras como "Ação" ou "Terror".</div>`;
+            msgs.innerHTML += `<div class="message bot-message">Desculpa, não encontrei nada.</div>`;
         }
         msgs.scrollTop = msgs.scrollHeight;
     }, 600);
