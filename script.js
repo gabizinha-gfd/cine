@@ -28,15 +28,15 @@ let selectedPrice = 0;
 let currentUserData = null; 
 
 // ==========================================
-// UI & GESTÃO DE ECRÃS
+// INTERFACE E MENUS (DESIGN MOBILE)
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
     if (!c) return;
     const t = document.createElement('div');
-    t.className = 'toast'; t.innerText = msg;
+    t.className = 'toast animate-fade-in'; t.innerText = msg;
     c.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
+    setTimeout(() => t.remove(), 3500);
 }
 
 window.addEventListener('scroll', () => {
@@ -55,15 +55,65 @@ function resetViews() {
 }
 
 function setActiveNav(navId) {
+    // Desktop Nav
     document.querySelectorAll('.nav-links .nav-item').forEach(el => el.classList.remove('active'));
     if(navId) {
         const el = document.getElementById(navId);
         if(el) el.classList.add('active');
     }
+    
+    // Mobile Bottom Nav Reset
+    document.querySelectorAll('.mobile-bottom-nav a').forEach(el => el.classList.remove('active-nav'));
+    if(navId === 'nav-inicio') document.getElementById('mob-nav-home').classList.add('active-nav');
+    else if(navId && navId !== 'nav-inicio') document.getElementById('mob-nav-titulos').classList.add('active-nav');
+}
+
+// Submenu Mobile
+function toggleSubmenu() {
+    const submenu = document.getElementById('mobile-submenu');
+    if(submenu.style.display === 'flex' || submenu.classList.contains('open')) {
+        submenu.classList.remove('open');
+        setTimeout(() => submenu.style.display = 'none', 300);
+    } else {
+        submenu.style.display = 'flex';
+        setTimeout(() => submenu.classList.add('open'), 10);
+    }
+}
+
+function irParaBuscaMobile() {
+    document.querySelectorAll('.mobile-bottom-nav a').forEach(el => el.classList.remove('active-nav'));
+    document.getElementById('mob-nav-search').classList.add('active-nav');
+    resetViews();
+    
+    const searchSection = document.getElementById('search-results-section');
+    searchSection.style.display = 'block';
+    
+    // Injeta barra de busca temporária na área principal para mobile
+    const row = document.getElementById('search-results-row');
+    row.innerHTML = `
+        <div style="grid-column: 1/-1; padding: 20px;">
+            <input type="text" placeholder="O que deseja procurar?" 
+                   style="width: 100%; padding: 15px; border-radius: 20px; background: #222; color: #fff; border: 1px solid #444;"
+                   oninput="pesquisarTitulos(event)">
+        </div>
+    `;
+    document.getElementById('search-results-title').innerText = "Buscar";
+}
+
+function togglePasswordVisibility() {
+    const passInput = document.getElementById('auth-password');
+    const btn = document.getElementById('btn-toggle-password');
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        btn.innerText = '🙈';
+    } else {
+        passInput.type = 'password';
+        btn.innerText = '👁️';
+    }
 }
 
 // ==========================================
-// AUTENTICAÇÃO E CONTROLE DE ASSINATURA
+// AUTENTICAÇÃO E SISTEMAS
 // ==========================================
 function toggleAuthMode(e) {
     if (e) e.preventDefault();
@@ -95,14 +145,12 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
             }, { merge: true });
         }
     } catch (error) {
-        err.innerText = 'Dados incorretos. Verifique o email/senha e tente de novo.';
+        err.innerText = 'Dados incorretos. Verifique e tente de novo.';
         btn.disabled = false;
     }
 });
 
-function fazerLogout() { 
-    auth.signOut().then(() => { lockScroll(false); window.location.reload(); }); 
-}
+function fazerLogout() { auth.signOut().then(() => { lockScroll(false); window.location.reload(); }); }
 
 auth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -110,7 +158,6 @@ auth.onAuthStateChanged(async (user) => {
         
         db.collection('users').doc(user.uid).onSnapshot(async (doc) => {
             currentUserData = doc.data() || {};
-            
             const btnUpgrade = document.getElementById('btn-upgrade-plan');
             const txtLimit = document.getElementById('user-free-limit-txt');
 
@@ -118,27 +165,15 @@ auth.onAuthStateChanged(async (user) => {
                 document.getElementById('subscription-screen').style.display = 'none';
                 document.getElementById('app-screen').style.display = 'block';
                 
-                const avatar = document.getElementById('user-avatar-img');
-                if (avatar) avatar.src = user.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
-                
                 const planBadge = document.getElementById('user-plan-badge');
                 if(planBadge) planBadge.innerText = currentUserData.planType;
-
                 if(currentUserData.planType === 'Grátis') {
                     if(btnUpgrade) btnUpgrade.style.display = 'block';
-                    if(txtLimit) {
-                        txtLimit.style.display = 'block';
-                        txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft} visualizações`;
-                    }
-                } else {
-                    if(btnUpgrade) btnUpgrade.style.display = 'none';
-                    if(txtLimit) txtLimit.style.display = 'none';
+                    if(txtLimit) { txtLimit.style.display = 'block'; txtLimit.innerText = `Restam: ${currentUserData.freeViewsLeft}`; }
                 }
 
                 await carregarWatchlistIDs(user.uid);
-                if(document.getElementById('categories-container').innerHTML === '') {
-                    carregarAba('inicio');
-                }
+                if(document.getElementById('categories-container').innerHTML === '') carregarAba('inicio');
             } else {
                 document.getElementById('app-screen').style.display = 'none';
                 document.getElementById('subscription-screen').style.display = 'flex';
@@ -150,28 +185,20 @@ auth.onAuthStateChanged(async (user) => {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'none';
-        minhaListaIDs.clear();
-        currentUserData = null;
-        
-        const btn = document.getElementById('auth-submit-btn');
-        if(btn) btn.disabled = false;
+        minhaListaIDs.clear(); currentUserData = null;
         lockScroll(false); 
     }
 });
 
 // ==========================================
-// INTEGRAÇÃO MERCADO PAGO BRICKS (API)
+// MERCADO PAGO E PLANOS
 // ==========================================
 const mp = new MercadoPago('TEST-SUA-PUBLIC-KEY-AQUI', { locale: 'pt-BR' });
 let cardPaymentBrickController;
 
 function escolherPlano(planoNome, precoStr) {
-    if (planoNome === 'Grátis') {
-        processarPlanoGratis();
-    } else {
-        selectedPrice = parseFloat(precoStr);
-        abrirPagamento(planoNome, selectedPrice);
-    }
+    if (planoNome === 'Grátis') processarPlanoGratis();
+    else { selectedPrice = parseFloat(precoStr); abrirPagamento(planoNome, selectedPrice); }
 }
 
 async function processarPlanoGratis() {
@@ -183,7 +210,6 @@ async function processarPlanoGratis() {
                 hasActivePlan: true, planType: 'Grátis', freeViewsLeft: 3,
                 subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            showToast("Bem-vindo! Você ganhou 3 visualizações gratuitas.");
         } catch(e) {}
     }
 }
@@ -199,44 +225,33 @@ async function abrirPagamento(planoNome, precoFloat) {
     
     const settings = {
         initialization: { amount: precoFloat },
-        customization: {
-            visual: { style: { theme: 'dark' } }, 
-            paymentMethods: { maxInstallments: 1 } 
-        },
+        customization: { visual: { style: { theme: 'dark' } }, paymentMethods: { maxInstallments: 1 } },
         callbacks: {
             onReady: () => {  },
             onSubmit: (cardFormData) => {
                 return new Promise((resolve, reject) => {
-                    showToast("Processando pagamento de forma segura...");
+                    showToast("Processando pagamento...");
                     setTimeout(async () => {
                         try {
-                            const user = auth.currentUser;
-                            await db.collection('users').doc(user.uid).set({
+                            await db.collection('users').doc(auth.currentUser.uid).set({
                                 hasActivePlan: true, planType: selectedPlan, freeViewsLeft: 9999,
                                 subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
                             }, { merge: true });
-                            
                             fecharPagamento();
-                            showToast(`Sucesso! Pagamento Aprovado. Bem-vindo ao plano ${selectedPlan}.`);
+                            showToast(`Sucesso! Bem-vindo ao plano ${selectedPlan}.`);
                             resolve();
-                        } catch(e) {
-                            showToast("Erro no banco de dados.");
-                            reject();
-                        }
+                        } catch(e) { reject(); }
                     }, 2000);
                 });
             },
-            onError: (error) => { showToast("Erro no formulário de pagamento."); }
+            onError: (error) => {}
         }
     };
     const bricksBuilder = mp.bricks();
     cardPaymentBrickController = await bricksBuilder.create('cardPayment', 'payment-brick-container', settings);
 }
 
-function fecharPagamento() {
-    document.getElementById('payment-modal').style.display = 'none';
-    lockScroll(false);
-}
+function fecharPagamento() { document.getElementById('payment-modal').style.display = 'none'; lockScroll(false); }
 
 function abrirTelaPlanos() {
     fecharModalPerfil();
@@ -244,47 +259,29 @@ function abrirTelaPlanos() {
     document.getElementById('subscription-screen').style.display = 'flex';
     document.getElementById('btn-cancel-upgrade').style.display = 'block';
 }
-
 function cancelarUpgrade() {
     document.getElementById('subscription-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
 }
 
 // ==========================================
-// PERFIL & CHAT IA
+// CINEBOT
 // ==========================================
-function abrirModalPerfil() {
-    const user = auth.currentUser;
-    if (user) {
-        document.getElementById('edit-display-name').value = user.displayName || '';
-        document.getElementById('edit-avatar-url').value = user.photoURL || '';
-    }
-    document.getElementById('profile-modal').style.display = 'flex';
-    lockScroll(true);
+function abrirChat() { 
+    document.getElementById('chat-modal').style.display = 'flex'; lockScroll(true); 
+    document.querySelectorAll('.mobile-bottom-nav a').forEach(el => el.classList.remove('active-nav'));
+    document.getElementById('mob-nav-chat').classList.add('active-nav');
 }
-function fecharModalPerfil() { document.getElementById('profile-modal').style.display = 'none'; lockScroll(false); }
-
-async function guardarPerfil(e) {
-    e.preventDefault();
-    const user = auth.currentUser;
-    const name = document.getElementById('edit-display-name').value;
-    const photo = document.getElementById('edit-avatar-url').value;
-    if (user) {
-        await user.updateProfile({ displayName: name, photoURL: photo });
-        const avatar = document.getElementById('user-avatar-img');
-        if(avatar) avatar.src = photo || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
-        fecharModalPerfil();
-        showToast('Perfil atualizado!');
-    }
+function fecharChat() { 
+    document.getElementById('chat-modal').style.display = 'none'; lockScroll(false); 
+    document.getElementById('mob-nav-chat').classList.remove('active-nav');
+    document.getElementById('mob-nav-home').classList.add('active-nav');
 }
-
-function abrirChat() { document.getElementById('chat-modal').style.display = 'flex'; lockScroll(true); }
-function fecharChat() { document.getElementById('chat-modal').style.display = 'none'; lockScroll(false); }
 
 function adicionarMsgChat(texto, remetente) {
     const msgs = document.getElementById('chat-messages');
     const div = document.createElement('div');
-    div.className = `chat-message ${remetente} fade-in-up`;
+    div.className = `chat-message ${remetente} animate-fade-in`;
     div.innerHTML = texto;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
@@ -312,10 +309,10 @@ async function enviarMensagemBot(txt) {
             const item = validData[Math.floor(Math.random() * validData.length)];
             const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
             const title = item.title || item.name;
-            const html = `Recomendo este título para si:
-                <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
+            const html = `Recomendação para si:
+                <div style="display:flex;gap:12px;margin-top:10px;background:#222;padding:10px;border-radius:8px;cursor:pointer;border:1px solid #444;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                     <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
-                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
+                    <div style="font-size:0.9rem; color:#fff;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
                 </div>`;
             setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
         }
@@ -323,13 +320,12 @@ async function enviarMensagemBot(txt) {
 }
 
 // ==========================================
-// GESTÃO DE ABAS E CATEGORIAS SEPARADAS
+// GESTÃO DE ABAS E TMDB
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
         const s = endpoint.includes('?') ? '&' : '?';
         const res = await fetch(`${TMDB_BASE_URL}${endpoint}${s}api_key=${TMDB_API_KEY}&language=pt-BR`);
-        if (!res.ok) throw new Error("Erro API");
         const json = await res.json();
         return json.results || [];
     } catch { return []; }
@@ -345,7 +341,7 @@ async function carregarAba(abaId, event) {
 
     const container = document.getElementById('categories-container');
     container.style.display = 'block';
-    container.innerHTML = '<div style="padding: 100px 0; text-align: center; color: #aaa;">Carregando catálogo...</div>';
+    container.innerHTML = '<div style="padding: 100px 0; text-align: center; color: #aaa;">A carregar...</div>';
     document.getElementById('hero-banner').style.display = 'flex';
 
     try {
@@ -354,8 +350,7 @@ async function carregarAba(abaId, event) {
             await renderizarListas([
                 { t: 'Filmes Populares', e: '/movie/popular', type: 'movie' },
                 { t: 'Séries Aclamadas', e: '/tv/popular', type: 'tv' },
-                { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' },
-                { t: 'Doramas Asiáticos', e: '/discover/tv?with_original_language=ko', type: 'tv' }
+                { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' }
             ]);
             if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
         } 
@@ -365,8 +360,7 @@ async function carregarAba(abaId, event) {
             await renderizarListas([
                 { t: 'Ação e Aventura', e: '/discover/movie?with_genres=28', type: 'movie' },
                 { t: 'Comédia', e: '/discover/movie?with_genres=35', type: 'movie' },
-                { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' },
-                { t: 'Ficção Científica', e: '/discover/movie?with_genres=878', type: 'movie' }
+                { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' }
             ]);
         } 
         else if (abaId === 'tv') {
@@ -374,8 +368,8 @@ async function carregarAba(abaId, event) {
             await carregarHeroTop('/tv/top_rated', 'tv');
             await renderizarListas([
                 { t: 'Séries Mais Vistas', e: '/tv/popular', type: 'tv' },
-                { t: 'Drama e Mistério', e: '/discover/tv?with_genres=18,10765', type: 'tv' },
-                { t: 'Comédia (Séries)', e: '/discover/tv?with_genres=35', type: 'tv' }
+                { t: 'Drama', e: '/discover/tv?with_genres=18', type: 'tv' },
+                { t: 'Mistério e Sci-Fi', e: '/discover/tv?with_genres=10765', type: 'tv' }
             ]);
         } 
         else if (abaId === 'anime') {
@@ -391,28 +385,10 @@ async function carregarAba(abaId, event) {
             await carregarHeroTop('/discover/movie?with_genres=16', 'movie');
             await renderizarListas([
                 { t: 'Filmes de Animação', e: '/discover/movie?with_genres=16', type: 'movie' },
-                { t: 'Séries Animadas', e: '/discover/tv?with_genres=16', type: 'tv' },
-                { t: 'Para a Família', e: '/discover/movie?with_genres=10751', type: 'movie' }
+                { t: 'Séries Animadas', e: '/discover/tv?with_genres=16', type: 'tv' }
             ]);
         }
-        else if (abaId === 'comedia') {
-            document.getElementById('continue-watching-section').style.display = 'none';
-            await carregarHeroTop('/discover/movie?with_genres=35', 'movie');
-            await renderizarListas([
-                { t: 'Comédia no Cinema', e: '/discover/movie?with_genres=35', type: 'movie' },
-                { t: 'Séries de Comédia', e: '/discover/tv?with_genres=35', type: 'tv' }
-            ]);
-        }
-        else if (abaId === 'romance') {
-            document.getElementById('continue-watching-section').style.display = 'none';
-            await carregarHeroTop('/discover/movie?with_genres=10749', 'movie');
-            await renderizarListas([
-                { t: 'Romances Populares', e: '/discover/movie?with_genres=10749', type: 'movie' },
-                { t: 'Comédia Romântica', e: '/discover/movie?with_genres=10749,35', type: 'movie' },
-                { t: 'Dramas de Romance', e: '/discover/movie?with_genres=10749,18', type: 'movie' }
-            ]);
-        }
-    } catch(e) { container.innerHTML = '<div style="padding: 50px; text-align: center; color: var(--primary);">Erro de conexão.</div>'; }
+    } catch(e) { container.innerHTML = ''; }
 }
 
 function carregarInicio() { carregarAba('inicio'); }
@@ -428,7 +404,7 @@ async function renderizarListas(categorias) {
     for (const cat of categorias) {
         const items = await fetchTMDB(cat.e);
         if(items.length > 0) {
-            const s = document.createElement('section'); s.className = 'section-container fade-in-up';
+            const s = document.createElement('section'); s.className = 'section-container animate-fade-in';
             let html = `<h2 class="section-title">${cat.t}</h2><div class="movie-row">`;
             items.forEach(i => { if (i.poster_path) html += criarCardHTML(i, cat.type); });
             s.innerHTML = html + `</div>`;
@@ -444,7 +420,6 @@ function configurarHero(item, mediaType) {
 
     document.getElementById('hero-banner').style.backgroundImage = `url('${bg}')`;
     document.getElementById('hero-title').innerText = title;
-    document.getElementById('hero-desc').innerText = item.overview ? item.overview.substring(0, 180) + '...' : 'Assista já em HD.';
     
     document.getElementById('hero-play-btn').onclick = () => {
         if(mediaType === 'tv') abrirModalSerie(item.id, title, poster);
@@ -454,9 +429,7 @@ function configurarHero(item, mediaType) {
     const isSaved = minhaListaIDs.has(String(item.id));
     const wlBtn = document.getElementById('hero-watchlist-btn');
     if(wlBtn) {
-        wlBtn.innerHTML = isSaved 
-            ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Guardado` 
-            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
+        wlBtn.innerHTML = isSaved ? `✔️ Guardado` : `➕ Guardar`;
         wlBtn.onclick = () => toggleMinhaLista({ id: item.id, title: title, coverImage: poster });
     }
 }
@@ -472,7 +445,7 @@ function criarCardHTML(item, type = 'movie') {
         <div class="movie-card" tabindex="0">
             <button class="card-watchlist-btn ${isSaved ? 'active' : ''}" onclick="event.stopPropagation(); toggleMinhaLista({id:'${id}',title:'${title}',coverImage:'${img}'})">${isSaved ? '✓' : '+'}</button>
             <div onclick="${action}" style="height:100%;">
-                <img src="${img}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80'" />
+                <img src="${img}" loading="lazy" />
                 <div class="card-info"><span class="card-title">${title}</span></div>
             </div>
         </div>`;
@@ -484,19 +457,18 @@ function criarCardHTML(item, type = 'movie') {
 async function pesquisarTitulos(e) {
     const q = e.target.value.trim();
     clearTimeout(debounceSearchTimer);
-    if (q.length < 2) { carregarAba('inicio'); return; }
+    if (q.length < 2) return;
 
     debounceSearchTimer = setTimeout(async () => {
         resetViews(); setActiveNav(null);
         document.getElementById('search-results-section').style.display = 'block';
-        document.getElementById('search-results-title').innerText = `Resultados para: "${q}"`;
         
         try {
             const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(q)}`);
             const row = document.getElementById('search-results-row');
             row.innerHTML = '';
             
-            if(res.length === 0) { row.innerHTML = '<p style="color: #aaa; grid-column: 1/-1;">Nenhum título encontrado.</p>'; return; }
+            if(res.length === 0) { row.innerHTML = '<p style="grid-column: 1/-1;">Nenhum título encontrado.</p>'; return; }
             res.forEach(i => { if (i.poster_path) row.innerHTML += criarCardHTML(i, i.media_type || 'movie'); });
         } catch(e) {}
     }, 400);
@@ -521,12 +493,6 @@ async function toggleMinhaLista(data) {
             b.innerText = minhaListaIDs.has(id) ? '✓' : '+';
         });
 
-        const wlBtn = document.getElementById('hero-watchlist-btn');
-        if (wlBtn && document.getElementById('hero-play-btn').onclick.toString().includes(id)) {
-            wlBtn.innerHTML = minhaListaIDs.has(id) 
-                ? `<svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg> Guardado` 
-                : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar`;
-        }
         if (document.getElementById('watchlist-section').style.display === 'block') carregarSecaoMinhaLista(user.uid);
     } catch(e) { }
 }
@@ -547,11 +513,11 @@ async function mostrarMinhaLista(e) {
 async function carregarSecaoMinhaLista(uid) {
     const s = document.getElementById('watchlist-section');
     const r = document.getElementById('watchlist-row');
-    s.style.display = 'block'; r.innerHTML = '<div style="grid-column: 1/-1; padding: 50px 0; color: #aaa;">Carregando...</div>';
+    s.style.display = 'block'; r.innerHTML = '<div style="grid-column: 1/-1;">Carregando...</div>';
     
     try {
         const snap = await db.collection('users').doc(uid).collection('watchlist').orderBy('addedAt','desc').get();
-        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1; color: #aaa;">A sua lista está vazia.</div>'; return; }
+        if (snap.empty) { r.innerHTML = '<div style="grid-column: 1/-1;">Sua lista está vazia.</div>'; return; }
         r.innerHTML = '';
         snap.forEach(d => r.innerHTML += criarCardHTML(d.data(), 'movie'));
     } catch (e) {}
@@ -569,7 +535,7 @@ async function carregarFilaContinueAVer(uid) {
             const d = doc.data();
             r.innerHTML += `
                 <div class="movie-card" tabindex="0" onclick="assistirFilme('${d.movieId}','${d.title.replace(/'/g, "\\'")}','${d.coverImage}')">
-                    <img src="${d.coverImage}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&q=80'" />
+                    <img src="${d.coverImage}" />
                     <div class="card-info"><span class="card-title">${d.title}</span></div>
                     <div class="progress-bar-container"><div class="progress-bar" style="width:100%"></div></div>
                 </div>`;
@@ -578,18 +544,14 @@ async function carregarFilaContinueAVer(uid) {
 }
 
 // ==========================================
-// PLAYER COM BARREIRA DE PLANO GRÁTIS
+// PLAYER 
 // ==========================================
 async function podeAssistir() {
     if (!currentUserData) return false;
-    
     if (currentUserData.planType === 'Grátis') {
         if (currentUserData.freeViewsLeft > 0) {
             try {
-                await db.collection('users').doc(auth.currentUser.uid).update({
-                    freeViewsLeft: firebase.firestore.FieldValue.increment(-1)
-                });
-                showToast(`Filme iniciado. Restam ${currentUserData.freeViewsLeft - 1} de 3 títulos grátis.`);
+                await db.collection('users').doc(auth.currentUser.uid).update({ freeViewsLeft: firebase.firestore.FieldValue.increment(-1) });
                 return true;
             } catch(e) { return false; }
         } else {
@@ -667,26 +629,37 @@ async function abrirModalSerie(id, title, img) {
         carregarEpisodios(id, 1, title, img);
         document.getElementById('episodes-modal').style.display = 'flex';
         lockScroll(true);
-    } catch (e) { showToast("Não foi possível carregar temporadas."); }
+    } catch (e) { showToast("Erro ao carregar temporadas."); }
 }
 
 async function carregarEpisodios(id, season, title, img) {
-    const list = document.getElementById('episodes-list'); list.innerHTML = '<div style="padding: 20px 0; color: #aaa;">Carregando episódios...</div>';
+    const list = document.getElementById('episodes-list'); list.innerHTML = '<div style="padding: 20px 0;">Carregando episódios...</div>';
     try {
         const res = await fetch(`${TMDB_BASE_URL}/tv/${id}/season/${season}?api_key=${TMDB_API_KEY}&language=pt-BR`);
         const data = await res.json();
         list.innerHTML = '';
-        if(!data.episodes || data.episodes.length === 0) { list.innerHTML = '<div style="color: #aaa;">Sem episódios.</div>'; return; }
+        if(!data.episodes || data.episodes.length === 0) { list.innerHTML = '<div>Sem episódios.</div>'; return; }
         
         data.episodes.forEach(ep => {
             const epImg = ep.still_path ? `${TMDB_IMAGE_BASE}${ep.still_path}` : img;
             list.innerHTML += `
-                <div class="episode-card fade-in-up" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
-                    <img src="${epImg}" onerror="this.src='https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200&q=80'" />
+                <div class="episode-card animate-fade-in" onclick="assistirEpisodio('${id}', ${season}, ${ep.episode_number}, '${title.replace(/'/g,"\\'")}', '${img}'); fecharModalEpisodios();">
+                    <img src="${epImg}" />
                     <div class="ep-info"><h4>Ep ${ep.episode_number}: ${ep.name}</h4><p>${ep.overview ? ep.overview.substring(0,60)+'...' : 'Assistir episódio'}</p></div>
                 </div>`;
         });
-    } catch(e) { list.innerHTML = '<div style="color: #E50914;">Erro a carregar episódios.</div>'; }
+    } catch(e) {}
 }
 
 function fecharModalEpisodios() { document.getElementById('episodes-modal').style.display = 'none'; lockScroll(false); }
+
+function abrirModalPerfil() {
+    const user = auth.currentUser;
+    if (user) {
+        document.getElementById('edit-display-name').value = user.displayName || '';
+        document.getElementById('edit-avatar-url').value = user.photoURL || '';
+    }
+    document.getElementById('profile-modal').style.display = 'flex';
+    lockScroll(true);
+}
+function fecharModalPerfil() { document.getElementById('profile-modal').style.display = 'none'; lockScroll(false); }
