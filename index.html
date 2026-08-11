@@ -126,6 +126,9 @@
                     <a href="#" class="nav-item" id="nav-movie" onclick="carregarAba('movie', event)">Filmes</a>
                     <a href="#" class="nav-item" id="nav-tv" onclick="carregarAba('tv', event)">Séries</a>
                     <a href="#" class="nav-item" id="nav-anime" onclick="carregarAba('anime', event)">Animes</a>
+                    <a href="#" class="nav-item" id="nav-desenho" onclick="carregarAba('desenho', event)">Desenhos</a>
+                    <a href="#" class="nav-item" id="nav-comedia" onclick="carregarAba('comedia', event)">Comédia</a>
+                    <a href="#" class="nav-item" id="nav-romance" onclick="carregarAba('romance', event)">Romance</a>
                     <a href="#" class="nav-item" id="nav-watchlist" onclick="mostrarMinhaLista(event)">Minha Lista</a>
                 </nav>
             </div>
@@ -162,17 +165,20 @@
 
         <main class="main-content">
             <section class="section-container fade-in-up" id="search-results-section" style="display: none; padding-top: 100px;">
-                <h2 class="section-title" id="search-results-title">Resultados</h2>
+                <h2 class="section-title" id="search-results-title">Resultados da Busca</h2>
                 <div class="movies-grid" id="search-results-row"></div>
             </section>
+            
             <section class="section-container fade-in-up" id="watchlist-section" style="display: none; padding-top: 100px;">
                 <h2 class="section-title">Minha Lista</h2>
                 <div class="movies-grid" id="watchlist-row"></div>
             </section>
+            
             <section class="section-container fade-in-up" id="continue-watching-section" style="display: none;">
                 <h2 class="section-title">Continuar Assistindo</h2>
                 <div class="movie-row" id="continue-watching-row"></div>
             </section>
+            
             <div id="categories-container" class="fade-in-up"></div>
         </main>
     </div>

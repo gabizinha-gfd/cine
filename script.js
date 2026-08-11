@@ -162,7 +162,6 @@ auth.onAuthStateChanged(async (user) => {
 // ==========================================
 // INTEGRAÇÃO MERCADO PAGO BRICKS (API)
 // ==========================================
-// Substitua "TEST-..." pela sua Public Key real do Mercado Pago
 const mp = new MercadoPago('TEST-SUA-PUBLIC-KEY-AQUI', { locale: 'pt-BR' });
 let cardPaymentBrickController;
 
@@ -170,7 +169,6 @@ function escolherPlano(planoNome, precoStr) {
     if (planoNome === 'Grátis') {
         processarPlanoGratis();
     } else {
-        // Converte string "18.90" para float 18.90
         selectedPrice = parseFloat(precoStr);
         abrirPagamento(planoNome, selectedPrice);
     }
@@ -197,25 +195,19 @@ async function abrirPagamento(planoNome, precoFloat) {
     document.getElementById('payment-modal').style.display = 'flex';
     lockScroll(true);
 
-    // INICIALIZA MERCADO PAGO BRICKS 
     if (cardPaymentBrickController) cardPaymentBrickController.unmount();
     
     const settings = {
         initialization: { amount: precoFloat },
         customization: {
-            visual: { style: { theme: 'dark' } }, // Integra perfeito com o site escuro
-            paymentMethods: { maxInstallments: 1 } // Assinatura paga de uma vez
+            visual: { style: { theme: 'dark' } }, 
+            paymentMethods: { maxInstallments: 1 } 
         },
         callbacks: {
-            onReady: () => { /* Brick carregado */ },
+            onReady: () => {  },
             onSubmit: (cardFormData) => {
-                // Aqui o cartão já foi validado pelo MP e virou um Token.
-                // Na vida real, você manda `cardFormData` pro seu Backend Node.js
                 return new Promise((resolve, reject) => {
                     showToast("Processando pagamento de forma segura...");
-                    
-                    /* === SIMULAÇÃO DE BACKEND === */
-                    // Como não tem Node.js no ar ainda, aprovamos direto para testes:
                     setTimeout(async () => {
                         try {
                             const user = auth.currentUser;
@@ -234,10 +226,7 @@ async function abrirPagamento(planoNome, precoFloat) {
                     }, 2000);
                 });
             },
-            onError: (error) => {
-                showToast("Erro no formulário de pagamento.");
-                console.error(error);
-            }
+            onError: (error) => { showToast("Erro no formulário de pagamento."); }
         }
     };
     const bricksBuilder = mp.bricks();
@@ -323,10 +312,10 @@ async function enviarMensagemBot(txt) {
             const item = validData[Math.floor(Math.random() * validData.length)];
             const img = `${TMDB_IMAGE_BASE}${item.poster_path}`;
             const title = item.title || item.name;
-            const html = `Veja esta recomendação:
-                <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1);" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
+            const html = `Recomendo este título para si:
+                <div style="display:flex;gap:12px;margin-top:10px;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.1); transition: 0.2s;" onclick="fecharChat(); assistirFilme('${item.id}', '${title.replace(/'/g, "\\'")}', '${img}')">
                     <img src="${img}" style="width:50px; height: 75px; border-radius:4px; object-fit:cover;" />
-                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir</p></div>
+                    <div style="font-size:0.9rem;"><strong>${title}</strong><p style="color:var(--primary);margin-top:6px;font-size:0.8rem;font-weight:600;">▶ Assistir Agora</p></div>
                 </div>`;
             setTimeout(() => adicionarMsgChat(html, 'bot'), 600);
         }
@@ -334,7 +323,7 @@ async function enviarMensagemBot(txt) {
 }
 
 // ==========================================
-// GESTÃO DE ABAS E TMDB
+// GESTÃO DE ABAS E CATEGORIAS SEPARADAS
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
@@ -365,7 +354,8 @@ async function carregarAba(abaId, event) {
             await renderizarListas([
                 { t: 'Filmes Populares', e: '/movie/popular', type: 'movie' },
                 { t: 'Séries Aclamadas', e: '/tv/popular', type: 'tv' },
-                { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' }
+                { t: 'Animes em Alta', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' },
+                { t: 'Doramas Asiáticos', e: '/discover/tv?with_original_language=ko', type: 'tv' }
             ]);
             if (auth.currentUser) carregarFilaContinueAVer(auth.currentUser.uid);
         } 
@@ -375,7 +365,8 @@ async function carregarAba(abaId, event) {
             await renderizarListas([
                 { t: 'Ação e Aventura', e: '/discover/movie?with_genres=28', type: 'movie' },
                 { t: 'Comédia', e: '/discover/movie?with_genres=35', type: 'movie' },
-                { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' }
+                { t: 'Terror', e: '/discover/movie?with_genres=27', type: 'movie' },
+                { t: 'Ficção Científica', e: '/discover/movie?with_genres=878', type: 'movie' }
             ]);
         } 
         else if (abaId === 'tv') {
@@ -383,8 +374,8 @@ async function carregarAba(abaId, event) {
             await carregarHeroTop('/tv/top_rated', 'tv');
             await renderizarListas([
                 { t: 'Séries Mais Vistas', e: '/tv/popular', type: 'tv' },
-                { t: 'Drama', e: '/discover/tv?with_genres=18', type: 'tv' },
-                { t: 'Mistério e Sci-Fi', e: '/discover/tv?with_genres=10765', type: 'tv' }
+                { t: 'Drama e Mistério', e: '/discover/tv?with_genres=18,10765', type: 'tv' },
+                { t: 'Comédia (Séries)', e: '/discover/tv?with_genres=35', type: 'tv' }
             ]);
         } 
         else if (abaId === 'anime') {
@@ -393,6 +384,32 @@ async function carregarAba(abaId, event) {
             await renderizarListas([
                 { t: 'Animes Populares', e: '/discover/tv?with_genres=16&with_original_language=ja', type: 'tv' },
                 { t: 'Ação Shonen', e: '/discover/tv?with_genres=16,10759&with_original_language=ja', type: 'tv' }
+            ]);
+        }
+        else if (abaId === 'desenho') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/discover/movie?with_genres=16', 'movie');
+            await renderizarListas([
+                { t: 'Filmes de Animação', e: '/discover/movie?with_genres=16', type: 'movie' },
+                { t: 'Séries Animadas', e: '/discover/tv?with_genres=16', type: 'tv' },
+                { t: 'Para a Família', e: '/discover/movie?with_genres=10751', type: 'movie' }
+            ]);
+        }
+        else if (abaId === 'comedia') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/discover/movie?with_genres=35', 'movie');
+            await renderizarListas([
+                { t: 'Comédia no Cinema', e: '/discover/movie?with_genres=35', type: 'movie' },
+                { t: 'Séries de Comédia', e: '/discover/tv?with_genres=35', type: 'tv' }
+            ]);
+        }
+        else if (abaId === 'romance') {
+            document.getElementById('continue-watching-section').style.display = 'none';
+            await carregarHeroTop('/discover/movie?with_genres=10749', 'movie');
+            await renderizarListas([
+                { t: 'Romances Populares', e: '/discover/movie?with_genres=10749', type: 'movie' },
+                { t: 'Comédia Romântica', e: '/discover/movie?with_genres=10749,35', type: 'movie' },
+                { t: 'Dramas de Romance', e: '/discover/movie?with_genres=10749,18', type: 'movie' }
             ]);
         }
     } catch(e) { container.innerHTML = '<div style="padding: 50px; text-align: center; color: var(--primary);">Erro de conexão.</div>'; }
@@ -581,7 +598,7 @@ async function podeAssistir() {
             return false;
         }
     }
-    return true; // Pagos assistem sempre
+    return true; 
 }
 
 async function assistirFilme(id, title, img) {
@@ -650,7 +667,7 @@ async function abrirModalSerie(id, title, img) {
         carregarEpisodios(id, 1, title, img);
         document.getElementById('episodes-modal').style.display = 'flex';
         lockScroll(true);
-    } catch (e) { showToast("Erro ao carregar temporadas."); }
+    } catch (e) { showToast("Não foi possível carregar temporadas."); }
 }
 
 async function carregarEpisodios(id, season, title, img) {
