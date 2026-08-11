@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#141414">
-    <title>CineNet | Streaming Premium</title>
+    <title>CineNet</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -40,7 +40,7 @@
     <div id="subscription-screen" class="auth-container" style="display: none; background: #141414;">
         <div class="auth-header" style="position: relative; text-align: center; border-bottom: 1px solid #333; padding: 20px;">
             <div class="logo">CineNet</div>
-            <button onclick="fazerLogout()" style="position: absolute; right: 5%; top: 25px; background: transparent; color: #fff; border: none; font-weight: 600; cursor: pointer;">Sair</button>
+            <button onclick="fazerLogout()" style="position: absolute; right: 5%; top: 25px; background: transparent; color: #fff; border: none; font-weight: 600; cursor: pointer;">Sair da Conta</button>
         </div>
         
         <div class="plans-wrapper fade-in-up">
@@ -56,8 +56,7 @@
                     <ul class="plan-features">
                         <li>✔️ Qualidade Boa (720p)</li>
                         <li>✔️ Ecrãs em simultâneo: 1</li>
-                        <li>✔️ Filmes e séries ilimitados</li>
-                        <li>✔️ Suporte em todos os dispositivos</li>
+                        <li>✔️ Catálogo Completo</li>
                     </ul>
                     <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Básico', '7,99€')">Assinar Básico</button>
                 </div>
@@ -69,8 +68,7 @@
                     <ul class="plan-features">
                         <li>✔️ Qualidade Excelente (1080p)</li>
                         <li>✔️ Ecrãs em simultâneo: 2</li>
-                        <li>✔️ Filmes e séries ilimitados</li>
-                        <li>✔️ Download para ver offline</li>
+                        <li>✔️ Download para offline</li>
                     </ul>
                     <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Standard', '11,99€')">Assinar Standard</button>
                 </div>
@@ -79,10 +77,9 @@
                     <h3>Premium</h3>
                     <div class="plan-price">15,99€ <span>/mês</span></div>
                     <ul class="plan-features">
-                        <li>✔️ Qualidade Excecional (4K+HDR)</li>
+                        <li>✔️ Qualidade 4K + HDR</li>
                         <li>✔️ Ecrãs em simultâneo: 4</li>
                         <li>✔️ Áudio Espacial</li>
-                        <li>✔️ Download em 6 dispositivos</li>
                     </ul>
                     <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Premium', '15,99€')">Assinar Premium</button>
                 </div>
@@ -94,20 +91,20 @@
         <div class="modal-card fade-in-up">
             <button class="close-modal-btn" onclick="fecharPagamento()">✕</button>
             <h2 style="margin-bottom: 10px;">Pagamento Seguro</h2>
-            <p style="color: #aaa; margin-bottom: 25px;">Plano selecionado: <strong id="selected-plan-name" style="color: #fff;"></strong> (<span id="selected-plan-price"></span>)</p>
+            <p style="color: #aaa; margin-bottom: 25px;">Plano: <strong id="selected-plan-name" style="color: #fff;"></strong> (<span id="selected-plan-price"></span>)</p>
             
             <form onsubmit="processarAssinatura(event)">
                 <div class="form-group">
                     <input type="text" placeholder="Nome no Cartão" required>
                 </div>
                 <div class="form-group">
-                    <input type="text" placeholder="Número do Cartão (16 dígitos)" maxlength="16" required>
+                    <input type="text" placeholder="Número do Cartão" maxlength="16" required>
                 </div>
                 <div style="display: flex; gap: 10px; margin-bottom: 16px;">
-                    <input type="text" placeholder="MM/AA" style="width: 50%; padding: 14px 20px; background: rgba(50,50,50,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none;" required>
-                    <input type="text" placeholder="CVC" style="width: 50%; padding: 14px 20px; background: rgba(50,50,50,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none;" maxlength="3" required>
+                    <input type="text" placeholder="MM/AA" style="width: 50%; padding: 14px; background: #333; border: 1px solid transparent; border-radius: 6px; color: #fff;" required>
+                    <input type="text" placeholder="CVC" style="width: 50%; padding: 14px; background: #333; border: 1px solid transparent; border-radius: 6px; color: #fff;" maxlength="3" required>
                 </div>
-                <button type="submit" class="btn-primary auth-submit-btn" id="payment-submit-btn">Iniciar Assinatura</button>
+                <button type="submit" class="btn-primary auth-submit-btn" id="payment-submit-btn">Concluir Assinatura</button>
             </form>
         </div>
     </div>
@@ -116,25 +113,25 @@
         
         <header class="navbar" id="main-navbar">
             <div class="nav-left">
-                <div class="logo" onclick="carregarInicio()">CineNet</div>
+                <div class="logo" onclick="carregarAba('inicio')">CineNet</div>
                 <nav class="nav-links">
-                    <a href="#" class="nav-item active" onclick="filtrarCategoria('inicio', this, event)">Início</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('movie', this, event)">Filmes</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('tv', this, event)">Séries</a>
-                    <a href="#" class="nav-item" onclick="filtrarCategoria('anime', this, event)">Animes</a>
-                    <a href="#" class="nav-item" onclick="mostrarMinhaLista(this, event)">A minha Lista</a>
+                    <a href="#" class="nav-item active" id="nav-inicio" onclick="carregarAba('inicio', event)">Início</a>
+                    <a href="#" class="nav-item" id="nav-movie" onclick="carregarAba('movie', event)">Filmes</a>
+                    <a href="#" class="nav-item" id="nav-tv" onclick="carregarAba('tv', event)">Séries</a>
+                    <a href="#" class="nav-item" id="nav-anime" onclick="carregarAba('anime', event)">Animes</a>
+                    <a href="#" class="nav-item" id="nav-watchlist" onclick="mostrarMinhaLista(event)">A minha Lista</a>
                 </nav>
             </div>
             <div class="nav-right">
                 <div class="search-box">
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="search-input" placeholder="Pesquisar títulos..." oninput="pesquisarTitulos(event)">
+                    <input type="text" id="search-input" placeholder="Pesquisar..." oninput="pesquisarTitulos(event)">
                 </div>
                 <button class="btn-chat-nav" onclick="abrirChat()" title="Assistente Virtual">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </button>
                 <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Configurações">
-                    <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80'">
+                    <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
                 </div>
             </div>
         </header>
@@ -144,7 +141,7 @@
             <div class="hero-content fade-in">
                 <span class="badge" id="hero-badge">Em Destaque</span>
                 <h1 id="hero-title">A carregar...</h1>
-                <p id="hero-desc">Descubra as melhores produções cinematográficas mundiais.</p>
+                <p id="hero-desc">Descubra as melhores produções mundiais.</p>
                 <div class="hero-buttons">
                     <button class="btn-primary" id="hero-play-btn">
                         <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg> Assistir
@@ -161,14 +158,17 @@
                 <h2 class="section-title" id="search-results-title">Resultados</h2>
                 <div class="movies-grid" id="search-results-row"></div>
             </section>
+
             <section class="section-container fade-in-up" id="watchlist-section" style="display: none; padding-top: 100px;">
                 <h2 class="section-title">A minha Lista</h2>
                 <div class="movies-grid" id="watchlist-row"></div>
             </section>
+
             <section class="section-container fade-in-up" id="continue-watching-section" style="display: none;">
                 <h2 class="section-title">Vistos Recentemente</h2>
                 <div class="movie-row" id="continue-watching-row"></div>
             </section>
+
             <div id="categories-container" class="fade-in-up"></div>
         </main>
     </div>
@@ -182,7 +182,7 @@
                 <button class="close-modal-btn" onclick="fecharChat()">✕</button>
             </div>
             <div id="chat-messages" class="chat-messages">
-                <div class="chat-message bot">Olá! Sou o assistente de inteligência do CineNet. O que lhe apetece ver hoje?</div>
+                <div class="chat-message bot">Olá! Sou o assistente do CineNet. O que procura hoje?</div>
             </div>
             <div class="chat-quick-actions">
                 <button onclick="enviarMensagemBot('Recomenda um filme de Ação')">💥 Ação</button>
@@ -191,7 +191,7 @@
             </div>
             <div class="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Pergunte-me algo..." onkeypress="if(event.key === 'Enter') enviarChatInput()">
-                <button class="btn-primary-small" onclick="enviarChatInput()" title="Enviar">
+                <button class="btn-primary-small" onclick="enviarChatInput()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                 </button>
             </div>
@@ -238,11 +238,10 @@
 
     <div id="video-container" class="video-modal" style="display: none;">
         <button class="close-video-btn" onclick="fecharPlayer()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="26" height="26"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            Fechar
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="26" height="26"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Fechar
         </button>
         <div class="video-loader" id="video-loader"></div>
-        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0"></iframe>
+        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0" onload="document.getElementById('video-loader').style.display='none'"></iframe>
     </div>
 
     <div id="toast-container"></div>
