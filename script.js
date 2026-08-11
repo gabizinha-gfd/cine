@@ -23,6 +23,7 @@ const PLAYER_CONFIG = { server: 'mgeb', color: 'e50914' };
 let minhaListaIDs = new Set();
 let debounceSearchTimer;
 let isLoginMode = true;
+let selectedPlan = "";
 
 // ==========================================
 // UI & GESTÃO DE ECRÃS
@@ -51,15 +52,12 @@ function resetViews() {
 }
 
 function lockScroll(lock) {
-    if (lock) {
-        document.body.classList.add('no-scroll');
-    } else {
-        document.body.classList.remove('no-scroll');
-    }
+    if (lock) document.body.classList.add('no-scroll');
+    else document.body.classList.remove('no-scroll');
 }
 
 // ==========================================
-// AUTENTICAÇÃO E PERFIL
+// AUTENTICAÇÃO E SISTEMA DE PLANOS
 // ==========================================
 function toggleAuthMode(e) {
     if (e) e.preventDefault();
@@ -86,6 +84,10 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         } else {
             const userCred = await auth.createUserWithEmailAndPassword(email, password);
             await userCred.user.updateProfile({ displayName: "Utilizador CineNet", photoURL: "" });
+            // Regista o user como sem plano inicialmente
+            await db.collection('users').doc(userCred.user.uid).set({
+                hasActivePlan: false, planType: null
+            }, { merge: true });
         }
     } catch (error) {
         err.innerText = 'Dados incorretos. Verifique e tente novamente.';
@@ -103,16 +105,39 @@ function fazerLogout() {
 auth.onAuthStateChanged(async (user) => {
     if (user) {
         document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-screen').style.display = 'block';
         
-        const avatar = document.getElementById('user-avatar-img');
-        if (avatar) avatar.src = user.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+        // VERIFICAR ASSINATURA NO FIRESTORE
+        try {
+            const docRef = await db.collection('users').doc(user.uid).get();
+            const userData = docRef.data() || {};
+            
+            if (userData.hasActivePlan === true) {
+                // Tem plano -> Mostrar App
+                document.getElementById('subscription-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'block';
+                
+                // Atualizar Perfil Visual
+                const avatar = document.getElementById('user-avatar-img');
+                if (avatar) avatar.src = user.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80";
+                
+                const planBadge = document.getElementById('user-plan-badge');
+                if(planBadge) planBadge.innerText = userData.planType || 'Premium';
 
-        await carregarWatchlistIDs(user.uid);
-        carregarInicio(); 
+                await carregarWatchlistIDs(user.uid);
+                carregarInicio();
+            } else {
+                // Não tem plano -> Mostrar Paywall (Ecrã de Planos)
+                document.getElementById('app-screen').style.display = 'none';
+                document.getElementById('subscription-screen').style.display = 'block';
+            }
+        } catch(e) {
+            console.error("Erro ao ler dados do utilizador", e);
+        }
+
     } else {
         document.getElementById('auth-screen').style.display = 'flex';
         document.getElementById('app-screen').style.display = 'none';
+        document.getElementById('subscription-screen').style.display = 'none';
         minhaListaIDs.clear();
         document.getElementById('auth-email').value = '';
         document.getElementById('auth-password').value = '';
@@ -122,6 +147,56 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
+// ==========================================
+// SIMULAÇÃO DE PAGAMENTO
+// ==========================================
+function abrirPagamento(planoNome, preco) {
+    selectedPlan = planoNome;
+    document.getElementById('selected-plan-name').innerText = planoNome;
+    document.getElementById('selected-plan-price').innerText = preco;
+    document.getElementById('payment-modal').style.display = 'flex';
+    lockScroll(true);
+}
+
+function fecharPagamento() {
+    document.getElementById('payment-modal').style.display = 'none';
+    lockScroll(false);
+}
+
+async function processarAssinatura(e) {
+    e.preventDefault();
+    const btn = document.getElementById('payment-submit-btn');
+    btn.innerText = 'A processar pagamento...';
+    btn.disabled = true;
+
+    // Simular delay de processamento (2 segundos)
+    setTimeout(async () => {
+        try {
+            const user = auth.currentUser;
+            if(user) {
+                await db.collection('users').doc(user.uid).set({
+                    hasActivePlan: true,
+                    planType: selectedPlan,
+                    subscriptionDate: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                fecharPagamento();
+                showToast(`Bem-vindo ao CineNet ${selectedPlan}!`);
+                
+                // Recarrega o estado para mostrar a App
+                window.location.reload(); 
+            }
+        } catch(error) {
+            btn.innerText = 'Tentar Novamente';
+            btn.disabled = false;
+            showToast('Erro ao processar assinatura.');
+        }
+    }, 2000);
+}
+
+// ==========================================
+// PERFIL
+// ==========================================
 function abrirModalPerfil() {
     const user = auth.currentUser;
     if (user) {

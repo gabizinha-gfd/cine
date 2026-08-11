@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#141414">
-    <title>CineNet | Filmes e Séries</title>
+    <title>CineNet | Streaming Premium</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -37,6 +37,81 @@
         </div>
     </div>
 
+    <div id="subscription-screen" class="auth-container" style="display: none; background: #141414;">
+        <div class="auth-header" style="position: relative; text-align: center; border-bottom: 1px solid #333; padding: 20px;">
+            <div class="logo">CineNet</div>
+            <button onclick="fazerLogout()" style="position: absolute; right: 5%; top: 25px; background: transparent; color: #fff; border: none; font-weight: 600; cursor: pointer;">Sair</button>
+        </div>
+        
+        <div class="plans-wrapper fade-in-up">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="font-size: 2.2rem; margin-bottom: 10px;">Escolha o seu plano</h1>
+                <p style="color: #aaa; font-size: 1.1rem;">Sem compromissos. Cancele quando quiser.</p>
+            </div>
+            
+            <div class="plans-grid-cards">
+                <div class="plan-card">
+                    <h3>Básico</h3>
+                    <div class="plan-price">7,99€ <span>/mês</span></div>
+                    <ul class="plan-features">
+                        <li>✔️ Qualidade Boa (720p)</li>
+                        <li>✔️ Ecrãs em simultâneo: 1</li>
+                        <li>✔️ Filmes e séries ilimitados</li>
+                        <li>✔️ Suporte em todos os dispositivos</li>
+                    </ul>
+                    <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Básico', '7,99€')">Assinar Básico</button>
+                </div>
+                
+                <div class="plan-card popular">
+                    <div class="plan-badge">Mais Popular</div>
+                    <h3>Standard</h3>
+                    <div class="plan-price">11,99€ <span>/mês</span></div>
+                    <ul class="plan-features">
+                        <li>✔️ Qualidade Excelente (1080p)</li>
+                        <li>✔️ Ecrãs em simultâneo: 2</li>
+                        <li>✔️ Filmes e séries ilimitados</li>
+                        <li>✔️ Download para ver offline</li>
+                    </ul>
+                    <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Standard', '11,99€')">Assinar Standard</button>
+                </div>
+                
+                <div class="plan-card premium">
+                    <h3>Premium</h3>
+                    <div class="plan-price">15,99€ <span>/mês</span></div>
+                    <ul class="plan-features">
+                        <li>✔️ Qualidade Excecional (4K+HDR)</li>
+                        <li>✔️ Ecrãs em simultâneo: 4</li>
+                        <li>✔️ Áudio Espacial</li>
+                        <li>✔️ Download em 6 dispositivos</li>
+                    </ul>
+                    <button class="btn-primary-small plan-btn" onclick="abrirPagamento('Premium', '15,99€')">Assinar Premium</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-card fade-in-up">
+            <button class="close-modal-btn" onclick="fecharPagamento()">✕</button>
+            <h2 style="margin-bottom: 10px;">Pagamento Seguro</h2>
+            <p style="color: #aaa; margin-bottom: 25px;">Plano selecionado: <strong id="selected-plan-name" style="color: #fff;"></strong> (<span id="selected-plan-price"></span>)</p>
+            
+            <form onsubmit="processarAssinatura(event)">
+                <div class="form-group">
+                    <input type="text" placeholder="Nome no Cartão" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" placeholder="Número do Cartão (16 dígitos)" maxlength="16" required>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <input type="text" placeholder="MM/AA" style="width: 50%; padding: 14px 20px; background: rgba(50,50,50,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none;" required>
+                    <input type="text" placeholder="CVC" style="width: 50%; padding: 14px 20px; background: rgba(50,50,50,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none;" maxlength="3" required>
+                </div>
+                <button type="submit" class="btn-primary auth-submit-btn" id="payment-submit-btn">Iniciar Assinatura</button>
+            </form>
+        </div>
+    </div>
+
     <div id="app-screen" style="display: none;">
         
         <header class="navbar" id="main-navbar">
@@ -55,10 +130,10 @@
                     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="text" id="search-input" placeholder="Pesquisar títulos..." oninput="pesquisarTitulos(event)">
                 </div>
-                <button class="btn-chat-nav" onclick="abrirChat()" title="Assistente Virtual CineBot">
+                <button class="btn-chat-nav" onclick="abrirChat()" title="Assistente Virtual">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </button>
-                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="O seu Perfil">
+                <div class="user-profile-btn" onclick="abrirModalPerfil()" title="Configurações">
                     <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80'">
                 </div>
             </div>
@@ -69,15 +144,13 @@
             <div class="hero-content fade-in">
                 <span class="badge" id="hero-badge">Em Destaque</span>
                 <h1 id="hero-title">A carregar...</h1>
-                <p id="hero-desc">Descubra as melhores produções cinematográficas do mundo com a melhor qualidade.</p>
+                <p id="hero-desc">Descubra as melhores produções cinematográficas mundiais.</p>
                 <div class="hero-buttons">
                     <button class="btn-primary" id="hero-play-btn">
-                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg>
-                        Assistir
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M8 5v14l11-7z"/></svg> Assistir
                     </button>
                     <button class="btn-secondary" id="hero-watchlist-btn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg>
-                        Guardar
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg> Guardar
                     </button>
                 </div>
             </div>
@@ -88,17 +161,14 @@
                 <h2 class="section-title" id="search-results-title">Resultados</h2>
                 <div class="movies-grid" id="search-results-row"></div>
             </section>
-
             <section class="section-container fade-in-up" id="watchlist-section" style="display: none; padding-top: 100px;">
                 <h2 class="section-title">A minha Lista</h2>
                 <div class="movies-grid" id="watchlist-row"></div>
             </section>
-
             <section class="section-container fade-in-up" id="continue-watching-section" style="display: none;">
                 <h2 class="section-title">Vistos Recentemente</h2>
                 <div class="movie-row" id="continue-watching-row"></div>
             </section>
-
             <div id="categories-container" class="fade-in-up"></div>
         </main>
     </div>
@@ -107,8 +177,7 @@
         <div class="chat-container fade-in-up">
             <div class="chat-header">
                 <div class="chat-title" style="display:flex; align-items:center; gap:8px;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" width="20" height="20"><path d="M12 2a2 2 0 0 1 2 2c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2zm0 6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6z"/></svg>
-                    CineBot
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" width="20" height="20"><path d="M12 2a2 2 0 0 1 2 2c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2zm0 6c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6z"/></svg> CineBot
                 </div>
                 <button class="close-modal-btn" onclick="fecharChat()">✕</button>
             </div>
@@ -133,9 +202,7 @@
         <div class="modal-card episodes-card fade-in-up">
             <button class="close-modal-btn" onclick="fecharModalEpisodios()">✕</button>
             <h2 id="modal-tv-title" style="margin-bottom: 15px; font-weight: 700;">Série</h2>
-            <div class="form-group">
-                <select id="season-select" class="season-dropdown"></select>
-            </div>
+            <div class="form-group"><select id="season-select" class="season-dropdown"></select></div>
             <div id="episodes-list" class="episodes-list-container"></div>
         </div>
     </div>
@@ -143,7 +210,16 @@
     <div id="profile-modal" class="modal-overlay" style="display: none;">
         <div class="modal-card fade-in-up">
             <button class="close-modal-btn" onclick="fecharModalPerfil()">✕</button>
-            <h2 style="margin-bottom: 25px;">O seu Perfil</h2>
+            <h2 style="margin-bottom: 20px;">O seu Perfil</h2>
+            
+            <div style="background: rgba(229, 9, 20, 0.1); border: 1px solid var(--primary); padding: 15px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <p style="font-size: 0.8rem; color: #aaa;">Plano Atual</p>
+                    <h3 style="color: var(--primary); font-size: 1.2rem; font-weight: 700;" id="user-plan-badge">A verificar...</h3>
+                </div>
+                <svg viewBox="0 0 24 24" fill="var(--primary)" width="30" height="30"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+
             <form onsubmit="guardarPerfil(event)">
                 <div class="form-group">
                     <input type="text" id="edit-display-name" placeholder="Nome de Exibição" required>
