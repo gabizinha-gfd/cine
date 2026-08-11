@@ -8,9 +8,9 @@
     
     <link rel="stylesheet" href="style.css">
     
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
 
@@ -26,25 +26,26 @@
                     <input type="email" id="auth-email" placeholder="E-mail" required autocomplete="email">
                 </div>
                 <div class="form-group password-input-wrapper">
-                    <input type="password" id="auth-password" placeholder="Palavra-passe" required autocomplete="current-password">
-                    <button type="button" id="btn-toggle-password" class="btn-toggle-pass" onclick="togglePasswordVisibility()">👁️</button>
+                    <input type="password" id="auth-password" placeholder="Senha" required autocomplete="current-password">
+                    <button type="button" id="btn-toggle-password" class="btn-toggle-pass">👁️</button>
                 </div>
                 <button type="submit" class="btn-primary auth-submit-btn" id="auth-submit-btn">Entrar</button>
             </form>
             <div class="auth-switch">
                 <span id="auth-switch-text">Novo por aqui?</span>
-                <a href="#" id="auth-switch-link" onclick="toggleAuthMode(event)">Assine agora.</a>
+                <a href="#" id="auth-switch-btn">Assine agora.</a>
             </div>
+            <button id="btn-guest-auth" class="btn-secondary" style="width: 100%; margin-top: 15px;">Entrar como Convidado</button>
         </div>
     </div>
 
     <div id="subscription-screen" class="auth-container animate-fade-in" style="display: none; background: #141414; align-items: flex-start; overflow-y: auto;">
         <div class="auth-header" style="position: relative; text-align: center; padding: 20px;">
             <div class="logo">CineNet</div>
-            <button onclick="fazerLogout()" style="position: absolute; right: 5%; top: 25px; background: transparent; color: #fff; border: none; font-weight: 600; cursor: pointer;">Sair</button>
+            <button onclick="logout()" style="position: absolute; right: 5%; top: 25px; background: transparent; color: #fff; border: none; font-weight: 600; cursor: pointer;">Sair</button>
         </div>
         
-        <div class="plans-wrapper">
+        <div class="plans-wrapper" id="plans-grid-container">
             <div style="text-align: center; margin-bottom: 30px;">
                 <h1 style="font-size: 2.2rem; margin-bottom: 10px;">Escolha o seu plano</h1>
                 <p style="color: #aaa; font-size: 1.1rem;">Assista sem limites. Cancele quando quiser.</p>
@@ -56,216 +57,128 @@
                     <div class="plan-price">R$ 0,00 <span>/mês</span></div>
                     <ul class="plan-features">
                         <li>✔️ Qualidade Padrão</li>
-                        <li>⚠️ Limite: 3 títulos</li>
+                        <li>⚠️ Limite: 3 buscas/dia</li>
                         <li>❌ Com anúncios</li>
                     </ul>
-                    <button class="btn-secondary plan-btn" onclick="escolherPlano('Grátis', '0.00')">Começar Grátis</button>
+                    <button class="btn-secondary plan-btn" onclick="assinarPlanoGratis()">Começar Grátis</button>
                 </div>
 
-                <div class="plan-card">
-                    <h3>Básico</h3>
-                    <div class="plan-price">R$ 18,90 <span>/mês</span></div>
-                    <ul class="plan-features">
-                        <li>✔️ Qualidade Boa (720p)</li>
-                        <li>✔️ Acesso Ilimitado</li>
-                        <li>✔️ Sem anúncios</li>
-                    </ul>
-                    <button class="btn-primary-small plan-btn" onclick="escolherPlano('Básico', '18.90')">Assinar Básico</button>
-                </div>
-                
-                <div class="plan-card popular">
-                    <div class="plan-badge">Popular</div>
-                    <h3>Padrão</h3>
-                    <div class="plan-price">R$ 39,90 <span>/mês</span></div>
-                    <ul class="plan-features">
-                        <li>✔️ Qualidade (1080p)</li>
-                        <li>✔️ 2 telas simultâneas</li>
-                        <li>✔️ Download offline</li>
-                    </ul>
-                    <button class="btn-primary-small plan-btn" onclick="escolherPlano('Padrão', '39.90')">Assinar Padrão</button>
-                </div>
-                
                 <div class="plan-card premium">
-                    <h3>Premium</h3>
-                    <div class="plan-price">R$ 55,90 <span>/mês</span></div>
+                    <div class="plan-badge">Acesso Total</div>
+                    <h3>VIP Premium</h3>
+                    <div class="plan-price">R$ 14,90 <span>/mês</span></div>
                     <ul class="plan-features">
                         <li>✔️ Qualidade 4K + HDR</li>
-                        <li>✔️ 4 telas simultâneas</li>
-                        <li>✔️ Áudio Espacial</li>
+                        <li>✔️ Acesso Ilimitado</li>
+                        <li>✔️ Sem anúncios</li>
+                        <li>✔️ Buscas Infinitas</li>
                     </ul>
-                    <button class="btn-primary-small plan-btn" onclick="escolherPlano('Premium', '55.90')">Assinar Premium</button>
+                    <button class="btn-primary-small plan-btn" onclick="abrirModalPagamento()">Assinar VIP</button>
                 </div>
             </div>
-            <button id="btn-cancel-upgrade" style="display: none; margin: 30px auto 0; padding: 12px 24px; background: transparent; color: #aaa; border: 1px solid #444; border-radius: 6px; cursor: pointer;" onclick="cancelarUpgrade()">Voltar</button>
+        </div>
+
+        <div class="plans-wrapper" id="pending-payment-container" style="display: none; text-align: center; width: 100%;">
+            <div style="background: var(--card-bg); padding: 50px; border-radius: var(--radius-md); border: 1px solid var(--border-color); max-width: 500px; margin: 0 auto; box-shadow: 0 0 20px rgba(241, 196, 15, 0.2);">
+                <div class="video-loader" style="position: relative; margin: 0 auto 20px; border-top-color: #f1c40f;"></div>
+                <h2 style="color: #f1c40f; margin-bottom: 15px;">Aguardando Confirmação do PIX...</h2>
+                <p style="color: #aaa; margin-bottom: 20px; line-height: 1.5;">O seu pedido de assinatura está em análise. Assim que o administrador confirmar o recebimento na conta bancária, o seu acesso será libertado automaticamente.</p>
+                <p style="color: #fff; font-weight: bold; margin-bottom: 30px;">Chave PIX: <span style="color: var(--primary);">83993967296</span></p>
+                <button class="btn-secondary" onclick="logout()">Sair da Conta</button>
+            </div>
         </div>
     </div>
 
-    <div id="payment-modal" class="modal-overlay animate-fade-in" style="display: none;">
+    <div id="paymentModal" class="modal-overlay animate-fade-in" style="display: none;">
         <div class="modal-card" style="max-width: 420px; text-align: center; padding: 30px;">
-            <button class="close-modal-btn" onclick="fecharPagamento()">✕</button>
+            <button class="close-modal-btn" onclick="fecharModalPagamento()">✕</button>
             <h2 style="margin-bottom: 10px;">Pagamento via PIX</h2>
-            <p style="color: #aaa; margin-bottom: 25px;">Plano: <strong id="selected-plan-name" style="color: #fff;"></strong> - R$ <span id="selected-plan-price"></span></p>
+            <p style="color: #aaa; margin-bottom: 20px;">Plano VIP Premium - <strong>R$ 14,90</strong></p>
             
             <div style="background: #fff; padding: 15px; border-radius: 10px; display: inline-block; margin-bottom: 20px;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=SUA_CHAVE_PIX_AQUI" alt="QR Code PIX" style="width: 200px; height: 200px; display: block;">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=83993967296" alt="QR Code PIX" style="width: 200px; height: 200px; display: block;">
             </div>
 
             <div class="form-group" style="text-align: left; margin-bottom: 25px;">
                 <label style="color: #aaa; font-size: 0.85rem; margin-bottom: 8px; display: block;">PIX Copia e Cola:</label>
                 <div style="display: flex; gap: 10px;">
-                    <input type="text" id="pix-key-input" value="seu-email-ou-cpf-pix-aqui" readonly style="flex: 1; padding: 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #fff;">
-                    <button class="btn-secondary" onclick="copiarPIX()" style="padding: 0 15px;">Copiar</button>
+                    <input type="text" id="pix-key-input" value="83993967296" readonly style="flex: 1; padding: 12px; background: #222; border: 1px solid #444; border-radius: 6px; color: #fff;">
+                    <button class="btn-secondary" onclick="copiarChavePix()" style="padding: 0 15px;">Copiar</button>
                 </div>
             </div>
 
-            <button class="btn-primary auth-submit-btn" id="payment-submit-btn" onclick="confirmarPagamentoPIX()">Já fiz o pagamento</button>
-            <p style="font-size: 0.75rem; color: #777; margin-top: 15px;">Seu plano será libertado logo após a confirmação.</p>
+            <button class="btn-primary auth-submit-btn" id="payment-submit-btn" onclick="solicitarConfirmacaoPix()">Já fiz a transferência</button>
+            <p style="font-size: 0.75rem; color: #777; margin-top: 15px;">Acesso libertado após validação manual do administrador.</p>
         </div>
     </div>
 
-    <div id="app-screen" style="display: none;">
+    <div id="adminModal" class="modal-overlay animate-fade-in" style="display: none;">
+        <div class="modal-card" style="max-width: 600px; padding: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="color: #f1c40f;">👑 Painel de Administração</h2>
+                <button class="close-modal-btn" onclick="fecharPainelAdmin()" style="position: relative; top: 0; right: 0;">✕</button>
+            </div>
+            <p style="color: #aaa; margin-bottom: 20px; font-size: 0.9em;">Aprove ou rejeite os pagamentos PIX dos utilizadores. O desbloqueio é instantâneo.</p>
+            
+            <div id="admin-payments-list" style="max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                </div>
+        </div>
+    </div>
+
+    <div id="app-content" style="display: none;">
         
         <header class="navbar desktop-nav" id="main-navbar">
             <div class="nav-left">
-                <div class="logo" onclick="carregarAba('inicio')">CineNet</div>
+                <div class="logo" onclick="irParaHome()">CineNet</div>
                 <nav class="nav-links">
-                    <a href="#" class="nav-item active" id="nav-inicio" onclick="carregarAba('inicio', event)">Início</a>
-                    <a href="#" class="nav-item" id="nav-movie" onclick="carregarAba('movie', event)">Filmes</a>
-                    <a href="#" class="nav-item" id="nav-tv" onclick="carregarAba('tv', event)">Séries</a>
-                    <a href="#" class="nav-item" id="nav-anime" onclick="carregarAba('anime', event)">Animes</a>
-                    <a href="#" class="nav-item" id="nav-desenho" onclick="carregarAba('desenho', event)">Desenhos</a>
-                    <a href="#" class="nav-item" id="nav-watchlist" onclick="mostrarMinhaLista(event)">Minha Lista</a>
+                    <a href="#" class="nav-item active" id="nav-home" onclick="irParaHome()">Início</a>
+                    <a href="#" class="nav-item" id="nav-movies" onclick="irParaFilmes()">Filmes</a>
+                    <a href="#" class="nav-item" id="nav-series" onclick="irParaSeries()">Séries</a>
+                    <a href="#" class="nav-item" id="nav-animes" onclick="irParaAnimes()">Animes</a>
                 </nav>
             </div>
             <div class="nav-right">
+                <button id="nav-admin-btn" class="btn-secondary" style="display: none; border-color: #f1c40f; color: #f1c40f;" onclick="abrirPainelAdmin()">👑 Admin</button>
                 <div class="search-box">
-                    <input type="text" id="search-input" placeholder="Pesquisar..." oninput="pesquisarTitulos(event)">
+                    <input type="text" id="main-search-input" placeholder="Pesquisar..." autocomplete="off">
                 </div>
                 <div class="user-profile-btn" onclick="abrirModalPerfil()">
-                    <img id="user-avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80" alt="Avatar">
+                    <span id="user-sub-badge" class="sub-badge inativo">Verificando...</span>
+                    <img id="user-avatar-pc" src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png" alt="Avatar">
                 </div>
             </div>
         </header>
 
-        <section class="hero-banner" id="hero-banner">
-            <div class="hero-overlay"></div>
-            <div class="hero-content animate-fade-in">
-                <span class="badge" id="hero-badge">Em Destaque</span>
-                <h1 id="hero-title">Carregando...</h1>
-                <p id="hero-desc">Descubra as melhores produções mundiais.</p>
-                <div class="hero-buttons">
-                    <button class="btn-primary" id="hero-play-btn">▶ Assistir</button>
-                    <button class="btn-secondary" id="hero-watchlist-btn">➕ Guardar</button>
+        <main class="main-content" id="main-content">
+            <section class="hero-banner" id="hero-banner">
+                <div class="hero-overlay"></div>
+                <div class="hero-content">
+                    <span class="badge">Em Destaque</span>
+                    <h1 id="hero-title">Carregando...</h1>
+                    <p id="hero-desc">Descubra as melhores produções.</p>
+                    <div class="hero-buttons">
+                        <button class="btn-primary" id="hero-play-btn">▶ Assistir</button>
+                        <button class="btn-secondary" id="hero-info-btn">ℹ Detalhes</button>
+                    </div>
                 </div>
-            </div>
-        </section>
-
-        <main class="main-content">
-            <section class="section-container animate-fade-in" id="search-results-section" style="display: none; padding-top: 100px;">
-                <h2 class="section-title" id="search-results-title">Resultados da Busca</h2>
-                <div class="movies-grid" id="search-results-row"></div>
             </section>
-            <section class="section-container animate-fade-in" id="watchlist-section" style="display: none; padding-top: 100px;">
-                <h2 class="section-title">Minha Lista</h2>
-                <div class="movies-grid" id="watchlist-row"></div>
+            
+            <section class="section-container" style="padding-top: 20px;">
+                <h2 class="section-title">Lançamentos</h2>
+                <div class="movie-row" id="row-trending"></div>
             </section>
-            <section class="section-container animate-fade-in" id="continue-watching-section" style="display: none;">
-                <h2 class="section-title">Continuar Assistindo</h2>
-                <div class="movie-row" id="continue-watching-row"></div>
-            </section>
-            <div id="categories-container" class="animate-fade-in"></div>
         </main>
 
-        <div id="mobile-submenu" class="mobile-submenu">
-            <a onclick="carregarAba('movie', event); toggleSubmenu()">Filmes</a>
-            <a onclick="carregarAba('tv', event); toggleSubmenu()">Séries</a>
-            <a onclick="carregarAba('anime', event); toggleSubmenu()">Animes</a>
-            <a onclick="carregarAba('desenho', event); toggleSubmenu()">Desenhos</a>
-            <a onclick="mostrarMinhaLista(event); toggleSubmenu()">Minha Lista</a>
-        </div>
-        <div class="mobile-bottom-nav">
-            <a id="mob-nav-home" class="active-nav" onclick="carregarAba('inicio', event)">
-                🏠 <span>Início</span>
-            </a>
-            <a id="mob-nav-titulos" onclick="toggleSubmenu()">
-                📚 <span>Títulos</span>
-            </a>
-            <a id="mob-nav-search" onclick="irParaBuscaMobile()">
-                🔍 <span>Buscar</span>
-            </a>
-            <a id="mob-nav-chat" onclick="abrirChat()">
-                🤖 <span>CineBot</span>
-            </a>
-        </div>
-    </div>
+        <main class="main-content" id="search-results-section" style="display: none; padding-top: 100px;">
+            <div id="search-limit-info" style="text-align: center; margin-bottom: 20px;"></div>
+            <div class="movies-grid" id="search-grid"></div>
+        </main>
 
-    <div id="chat-modal" class="modal-overlay animate-fade-in" style="display: none;">
-        <div class="chat-container">
-            <div class="chat-header">
-                <div class="chat-title">🤖 CineBot</div>
-                <button class="close-modal-btn" onclick="fecharChat()">✕</button>
-            </div>
-            <div id="chat-messages" class="chat-messages">
-                <div class="chat-message bot">Olá! Sou o assistente de inteligência do CineNet. O que quer assistir hoje?</div>
-            </div>
-            <div class="chat-quick-actions">
-                <button onclick="enviarMensagemBot('Recomende um filme de Ação')">💥 Ação</button>
-                <button onclick="enviarMensagemBot('Quero uma Comédia')">😂 Comédia</button>
-                <button onclick="enviarMensagemBot('Ficção Científica')">🛸 Sci-Fi</button>
-            </div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Pergunte-me algo..." onkeypress="if(event.key === 'Enter') enviarChatInput()">
-                <button class="btn-primary-small" onclick="enviarChatInput()">Enviar</button>
-            </div>
+        <div id="streaming-player-screen" class="video-modal" style="display: none;">
+            <button id="close-player-btn" class="close-video-btn">✖ Fechar Vídeo</button>
+            <iframe id="videoPlayer" allowfullscreen="true" allow="autoplay" frameborder="0"></iframe>
         </div>
-    </div>
 
-    <div id="episodes-modal" class="modal-overlay animate-fade-in" style="display: none;">
-        <div class="modal-card episodes-card">
-            <button class="close-modal-btn" onclick="fecharModalEpisodios()">✕</button>
-            <div class="modal-body">
-                <h2 id="modal-tv-title">Série</h2>
-                <div class="form-group"><select id="season-select" class="season-dropdown"></select></div>
-                <div id="episodes-list" class="episodes-list-container"></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="profile-modal" class="modal-overlay animate-fade-in" style="display: none;">
-        <div class="modal-card">
-            <button class="close-modal-btn" onclick="fecharModalPerfil()">✕</button>
-            <div class="modal-body">
-                <h2>O seu Perfil</h2>
-                <div style="background: var(--secondary-bg); border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <p style="font-size: 0.8rem; color: var(--text-muted);">Plano Atual</p>
-                        <h3 style="color: var(--primary); font-size: 1.2rem; font-weight: 700;" id="user-plan-badge">A verificar...</h3>
-                        <p id="user-free-limit-txt" style="font-size: 0.8rem; color: #ffb400; margin-top: 4px; display: none;"></p>
-                    </div>
-                    <button id="btn-upgrade-plan" onclick="abrirTelaPlanos()" class="btn-primary-small" style="display: none;">Upgrade</button>
-                </div>
-
-                <form onsubmit="guardarPerfil(event)">
-                    <div class="form-group">
-                        <input type="text" id="edit-display-name" placeholder="Nome de Exibição" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="url" id="edit-avatar-url" placeholder="URL da Foto (Opcional)">
-                    </div>
-                    <div class="modal-actions">
-                        <button type="submit" class="btn-primary">Salvar Alterações</button>
-                    </div>
-                    <hr class="divider" style="margin: 15px 0; border: 1px solid var(--border-color);">
-                    <button type="button" class="btn-logout" style="width: 100%; padding: 12px; background: transparent; color: var(--text-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm);" onclick="fazerLogout()">Sair da Conta</button>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <div id="video-container" class="video-modal animate-fade-in" style="display: none;">
-        <button class="close-video-btn close-player" onclick="fecharPlayer()" title="Sair do Player">✖ Voltar</button>
-        <div class="video-loader" id="video-loader"></div>
-        <iframe id="mega-player-iframe" src="" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen" frameborder="0" onload="document.getElementById('video-loader').style.display='none'"></iframe>
     </div>
 
     <div id="toast-container"></div>
