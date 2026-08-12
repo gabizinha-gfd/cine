@@ -18,7 +18,7 @@ const auth = firebase.auth();
 const TMDB_KEY = "17c56e3825d7fbae6581866083d0d778";
 const PIX_KEY = "83993967296";
 
-// AQUI: Os E-mails com acesso total e Painel Admin
+// AQUI: E-mails Criadores = VIP Automático Permanente
 const EMAILS_CRIADORES = ["roberci.azevedo@academico.ifpb.edu.br"];
 
 let isLoginMode = true;
@@ -53,7 +53,7 @@ function hojeStr() {
 }
 
 // ==========================================
-// AUTENTICAÇÃO
+// AUTENTICAÇÃO E LOGIN
 // ==========================================
 document.getElementById('auth-switch-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -84,14 +84,9 @@ document.getElementById('auth-form')?.addEventListener('submit', (e) => {
         auth.signInWithEmailAndPassword(email, password).catch(e => err.innerText = "Erro: " + e.message);
     } else {
         auth.createUserWithEmailAndPassword(email, password).then((userCred) => {
-            // Inicializa inativo. Se for criador, a próxima função resolve
             db.ref('users/' + userCred.user.uid + '/assinatura').set({ status: 'inativo', plano: null });
         }).catch(e => err.innerText = "Erro: " + e.message);
     }
-});
-
-document.getElementById('btn-guest-auth')?.addEventListener('click', () => {
-    auth.signInAnonymously().catch(e => console.log(e));
 });
 
 function logout() { auth.signOut().then(() => window.location.reload()); }
@@ -104,14 +99,10 @@ auth.onAuthStateChanged(user => {
         currentUserUID = user.uid;
         document.getElementById('auth-screen').style.display = 'none';
         
-        // Verifica se é Conta de Criador (Admin)
+        // Proteção VIP Criador
         const isCreator = EMAILS_CRIADORES.includes(user.email);
-        
         if (isCreator) {
-            document.getElementById('nav-admin-btn').style.display = 'inline-block';
             db.ref('users/' + user.uid + '/assinatura').update({ status: 'ativo', plano: 'Criador VIP' });
-        } else {
-            document.getElementById('nav-admin-btn').style.display = 'none';
         }
 
         // Listener da Assinatura
@@ -126,10 +117,7 @@ auth.onAuthStateChanged(user => {
         db.ref('users/' + user.uid + '/biblioteca').on('value', snapshot => {
             biblioteca = snapshot.val() || { watchlist: {} };
             if(!biblioteca.watchlist) biblioteca.watchlist = {};
-            
-            if(document.getElementById('section-watchlist').style.display === 'block') {
-                renderizarWatchlist();
-            }
+            if(document.getElementById('section-watchlist').style.display === 'block') renderizarWatchlist();
         });
 
     } else {
@@ -144,11 +132,8 @@ function atualizarUIBaseadoNoStatus(status, plano) {
     const badge = document.getElementById('user-sub-badge');
     if (badge) {
         if (status === 'ativo') {
-            badge.innerText = (plano === 'Grátis') ? '🆓 Grátis' : '⭐ VIP Premium';
+            badge.innerText = (plano === 'Grátis') ? '🆓 Grátis' : '⭐ VIP';
             badge.className = 'sub-badge ativo';
-        } else if (status === 'pendente') {
-            badge.innerText = '⏳ Análise PIX';
-            badge.className = 'sub-badge pendente';
         } else {
             badge.innerText = '🔒 Sem Plano';
             badge.className = 'sub-badge inativo';
@@ -160,31 +145,36 @@ function atualizarUIBaseadoNoStatus(status, plano) {
         document.getElementById('app-content').style.display = 'block';
         if(document.getElementById('home-catalog').innerHTML === '') irParaHome();
     } 
-    else if (status === 'pendente') {
-        document.getElementById('app-content').style.display = 'none';
-        document.getElementById('subscription-screen').style.display = 'flex';
-        document.getElementById('plans-grid-container').style.display = 'none';
-        document.getElementById('pending-payment-container').style.display = 'block';
-    } 
     else {
         document.getElementById('app-content').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'flex';
         document.getElementById('plans-grid-container').style.display = 'block';
-        document.getElementById('pending-payment-container').style.display = 'none';
     }
 }
 
 // ==========================================
-// FLUXO DE COMPRA & MUDAR PLANO
+// FLUXO DE COMPRA E VERIFICAÇÃO AUTOMÁTICA
 // ==========================================
 function assinarPlanoGratis() {
     db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'ativo', plano: 'Grátis' });
     showToast("Plano Grátis ativado!");
 }
 
-function abrirModalPagamento() { 
+function abrirModalPagamento(planoNome, preco) {
+    document.getElementById('selected-plan-name').innerText = planoNome;
+    document.getElementById('selected-plan-price').innerText = preco;
     document.getElementById('paymentModal').style.display = 'flex'; 
     lockScroll(true); 
+
+    // Lógica Automática de Aprovação (Simulação de Webhook)
+    setTimeout(() => {
+        const user = auth.currentUser;
+        if(user && document.getElementById('paymentModal').style.display === 'flex') {
+            db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: planoNome });
+            fecharModalPagamento();
+            showToast("✅ Pagamento reconhecido automaticamente! Bem-vindo(a) ao VIP.");
+        }
+    }, 7000); // Aprova automaticamente em 7 segundos para demonstração
 }
 
 function fecharModalPagamento() { 
@@ -199,109 +189,21 @@ function copiarChavePix() {
     catch(e) { document.execCommand("copy"); showToast("Chave PIX copiada!"); }
 }
 
-function solicitarConfirmacaoPix() {
-    const user = auth.currentUser;
-    const btn = document.getElementById('payment-submit-btn');
-    btn.disabled = true; btn.innerText = "A Enviar...";
-
-    const pedido = { 
-        uid: user.uid, 
-        email: user.email || 'Convidado', 
-        data: new Date().toLocaleString('pt-BR'), 
-        status: "pendente" 
-    };
-
-    db.ref('users/' + user.uid + '/assinatura').set({ status: 'pendente' }).then(() => {
-        return db.ref('pagamentos_pendentes/' + user.uid).set(pedido);
-    }).then(() => {
-        fecharModalPagamento();
-        btn.disabled = false; btn.innerText = "Já fiz a transferência";
-        showToast("Pedido enviado! O Admin irá aprovar.");
-    }).catch(err => {
-        showToast("Erro.");
-        btn.disabled = false; btn.innerText = "Já fiz a transferência";
-    });
-}
-
 function abrirTelaPlanosDeUpgrade() {
     fecharModalPerfil();
-    // Coloca status inativo para forçar tela de planos
     db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'inativo' });
     document.getElementById('btn-cancel-upgrade').style.display = 'block';
 }
 
 function cancelarUpgrade() {
-    // Retorna ao grátis se cancelar o upgrade
-    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'ativo' });
-}
-
-// ==========================================
-// PAINEL DE ADMINISTRAÇÃO (ANTI-FRAUDE)
-// ==========================================
-function abrirPainelAdmin() { 
-    document.getElementById('adminModal').style.display = 'flex'; 
-    lockScroll(true); 
-    carregarPagamentosPendentes(); 
-}
-
-function fecharPainelAdmin() { 
-    document.getElementById('adminModal').style.display = 'none'; 
-    lockScroll(false); 
-}
-
-function carregarPagamentosPendentes() {
-    const lista = document.getElementById('admin-payments-list');
-    lista.innerHTML = '<p style="text-align:center; color:#aaa;">A carregar...</p>';
-
-    db.ref('pagamentos_pendentes').on('value', snapshot => {
-        lista.innerHTML = '';
-        const dados = snapshot.val();
-        let temPendente = false;
-
-        if (dados) {
-            Object.keys(dados).forEach(uid => {
-                const p = dados[uid];
-                if (p.status === 'pendente') {
-                    temPendente = true;
-                    lista.innerHTML += `
-                        <div class="admin-row">
-                            <div class="admin-info">
-                                <p><strong>Email:</strong> ${p.email}</p>
-                                <p><strong>Data:</strong> ${p.data}</p>
-                            </div>
-                            <div class="admin-actions">
-                                <button class="btn-approve" onclick="aprovarPix('${uid}')">✅ Aprovar</button>
-                                <button class="btn-reject" onclick="rejeitarPix('${uid}')">❌</button>
-                            </div>
-                        </div>`;
-                }
-            });
-        }
-        if (!temPendente) lista.innerHTML = '<p style="text-align:center; color:#2ecc71;">Tudo limpo! Nenhum pagamento pendente.</p>';
-    });
-}
-
-function aprovarPix(uid) {
-    if(confirm("Confirmar que o dinheiro entrou na conta PIX?")) {
-        db.ref('pagamentos_pendentes/' + uid).update({ status: 'aprovado' });
-        db.ref('users/' + uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
-        showToast("Usuário Aprovado!");
-    }
-}
-
-function rejeitarPix(uid) {
-    if(confirm("Rejeitar pagamento?")) {
-        db.ref('pagamentos_pendentes/' + uid).update({ status: 'rejeitado' });
-        db.ref('users/' + uid + '/assinatura').set({ status: 'inativo' });
-        showToast("Pagamento rejeitado.");
-    }
+    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'ativo', plano: 'Grátis' });
 }
 
 // ==========================================
 // ABAS E NAVEGAÇÃO
 // ==========================================
 function esconderSeccoes() {
-    const seccoes = ['section-home', 'section-movies', 'section-series', 'section-animes', 'section-doramas', 'section-search', 'section-watchlist', 'section-chat'];
+    const seccoes = ['section-home', 'section-movies', 'section-series', 'section-animes', 'section-doramas', 'section-search', 'section-watchlist'];
     seccoes.forEach(s => { const el = document.getElementById(s); if(el) el.style.display = 'none'; });
 }
 
@@ -314,7 +216,6 @@ function setNavActive(id) {
     if(id === 'nav-home') document.getElementById('mob-nav-home').classList.add('active-nav');
     else if(['nav-movies', 'nav-series', 'nav-animes', 'nav-doramas'].includes(id)) document.getElementById('mob-nav-titulos').classList.add('active-nav');
     else if(id === 'section-search') document.getElementById('mob-nav-search').classList.add('active-nav');
-    else if(id === 'section-chat') document.getElementById('mob-nav-chat').classList.add('active-nav');
 }
 
 function toggleSubmenu() {
@@ -328,7 +229,6 @@ function irParaSeries() { esconderSeccoes(); setNavActive('nav-series'); documen
 function irParaAnimes() { esconderSeccoes(); setNavActive('nav-animes'); document.getElementById('section-animes').style.display = 'block'; carregarAbaAnimes(); }
 function irParaDoramas() { esconderSeccoes(); setNavActive('nav-doramas'); document.getElementById('section-doramas').style.display = 'block'; carregarAbaDoramas(); }
 function irParaWatchlist() { esconderSeccoes(); setNavActive(''); document.getElementById('section-watchlist').style.display = 'block'; renderizarWatchlist(); }
-function irParaChat() { esconderSeccoes(); setNavActive('section-chat'); document.getElementById('section-chat').style.display = 'block'; }
 
 // ==========================================
 // LIMITES DA VERSÃO GRÁTIS (PESQUISA)
@@ -383,7 +283,7 @@ function iniciarBusca(query) {
 }
 
 // ==========================================
-// MINHA LISTA (WATCHLIST) 100% FUNCIONAL
+// MINHA LISTA (WATCHLIST) NO FIREBASE
 // ==========================================
 let itemDetalheAtual = null;
 
@@ -399,12 +299,7 @@ function alternarWatchlist() {
         showToast("Adicionado à Lista!");
     }
     
-    // Grava no Firebase
-    if (currentUserUID) {
-        db.ref('users/' + currentUserUID + '/biblioteca/watchlist').set(biblioteca.watchlist);
-    }
-    
-    // Atualiza o botão no modal
+    if (currentUserUID) db.ref('users/' + currentUserUID + '/biblioteca/watchlist').set(biblioteca.watchlist);
     document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
 }
 
@@ -428,7 +323,7 @@ function renderizarWatchlist() {
 }
 
 // ==========================================
-// TMDB E RENDERIZAÇÃO
+// TMDB E RENDERIZAÇÃO DE CATÁLOGOS
 // ==========================================
 async function fetchTMDB(endpoint) {
     try {
@@ -524,7 +419,7 @@ function carregarAbaDoramas() {
 // ==========================================
 async function abrirDetalhes(id, type) {
     const data = await fetchTMDB(`/${type}/${id}`);
-    itemDetalheAtual = { id, type, poster_path: data.poster_path, title: data.title || data.name }; // Guarda para a Watchlist
+    itemDetalheAtual = { id, type, poster_path: data.poster_path, title: data.title || data.name }; 
     
     document.getElementById('modal-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/w780${data.backdrop_path || data.poster_path})`;
     document.getElementById('modal-title').innerText = data.title || data.name;
@@ -532,9 +427,7 @@ async function abrirDetalhes(id, type) {
     document.getElementById('modal-rating').innerText = data.vote_average ? data.vote_average.toFixed(1) : '';
     document.getElementById('modal-overview').innerText = data.overview;
     
-    // Atualiza botão Watchlist
     document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
-
     document.getElementById('modal-play-btn').onclick = () => abrirPlayer(id, type);
 
     const epContainer = document.getElementById('episodes-container');
@@ -577,7 +470,6 @@ async function carregarEpsLista(tvId, season) {
 
 function fecharDetalhes() { document.getElementById('modal-details').style.display = 'none'; document.body.classList.remove('modal-open'); }
 
-// Todos podem assistir 
 function abrirPlayer(id, type) {
     const iframe = document.getElementById('videoPlayer');
     iframe.src = `https://mgeb.top/embed/${type === 'tv' ? 'tv/'+id+'/1/1' : 'movie/'+id}?player=vidstack#color=e50914`;
@@ -595,38 +487,15 @@ document.getElementById('close-player-btn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// CINEBOT CHAT E PERFIL
+// PERFIL
 // ==========================================
-function enviarChat() {
-    const input = document.getElementById('chat-input');
-    const txt = input.value.trim();
-    if(!txt) return;
-    
-    const msgs = document.getElementById('chat-messages');
-    msgs.innerHTML += `<div class="message user-message">${txt}</div>`;
-    input.value = '';
-    
-    setTimeout(async () => {
-        const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(txt)}`);
-        if(res.results && res.results.length > 0 && res.results[0].poster_path) {
-            const item = res.results[0];
-            msgs.innerHTML += `
-                <div class="message bot-message" style="display:flex; gap:10px; cursor:pointer;" onclick="abrirDetalhes(${item.id}, '${item.media_type || 'movie'}')">
-                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px; width:50px;">
-                    <div>
-                        <strong style="color:var(--primary)">${item.title || item.name}</strong>
-                        <p style="font-size:0.8em; margin-top:5px; color:#aaa;">Clique para ver mais.</p>
-                    </div>
-                </div>`;
-        } else {
-            msgs.innerHTML += `<div class="message bot-message">Desculpa, não encontrei nada.</div>`;
-        }
-        msgs.scrollTop = msgs.scrollHeight;
-    }, 600);
-}
-
 function abrirModalPerfil() {
     document.getElementById('profile-plan-name').innerText = planoAtual || 'Nenhum';
+    if(planoAtual === 'Grátis' || planoAtual === null) {
+        document.getElementById('btn-upgrade-plan').style.display = 'block';
+    } else {
+        document.getElementById('btn-upgrade-plan').style.display = 'none';
+    }
     document.getElementById('profileModal').style.display = 'flex';
     document.body.classList.add('modal-open');
 }
