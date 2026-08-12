@@ -18,18 +18,28 @@ const auth = firebase.auth();
 const TMDB_KEY = "17c56e3825d7fbae6581866083d0d778";
 const PIX_KEY = "83993967296";
 
-// AQUI: E-mails Criadores = VIP Automático Permanente
+// E-mail do Administrador (VIP Ilimitado Sempre)
 const EMAILS_CRIADORES = ["roberci.azevedo@academico.ifpb.edu.br"];
+
+const avataresSeguros = [
+    "https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png",
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=e50914",
+    "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka&backgroundColor=1f1f1f",
+    "https://api.dicebear.com/7.x/bottts/svg?seed=Robot1&backgroundColor=b20710"
+];
 
 let isLoginMode = true;
 let currentUserUID = null;
 let statusAssinatura = "inativo"; 
 let planoAtual = null;
 let debounceTimer;
-let biblioteca = { watchlist: {} };
+let payTimeout;
+let biblioteca = { watchlist: {}, perfil: { nome: "Utilizador", avatar: avataresSeguros[0] } };
+let itemDetalheAtual = null;
+let avatarTemporario = avataresSeguros[0];
 
 // ==========================================
-// UTILITÁRIOS E TOASTS
+// UTILITÁRIOS
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -46,14 +56,10 @@ window.addEventListener('scroll', () => {
 });
 
 function lockScroll(lock) { document.body.classList.toggle('no-scroll', lock); }
-
-function hojeStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
-}
+function hojeStr() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
 
 // ==========================================
-// AUTENTICAÇÃO E LOGIN
+// AUTENTICAÇÃO
 // ==========================================
 document.getElementById('auth-switch-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -85,8 +91,13 @@ document.getElementById('auth-form')?.addEventListener('submit', (e) => {
     } else {
         auth.createUserWithEmailAndPassword(email, password).then((userCred) => {
             db.ref('users/' + userCred.user.uid + '/assinatura').set({ status: 'inativo', plano: null });
+            db.ref('users/' + userCred.user.uid + '/biblioteca/perfil').set({ nome: "Utilizador Novo", avatar: avataresSeguros[0] });
         }).catch(e => err.innerText = "Erro: " + e.message);
     }
+});
+
+document.getElementById('btn-guest-auth')?.addEventListener('click', () => {
+    auth.signInAnonymously().catch(e => console.log(e));
 });
 
 function logout() { auth.signOut().then(() => window.location.reload()); }
@@ -99,10 +110,10 @@ auth.onAuthStateChanged(user => {
         currentUserUID = user.uid;
         document.getElementById('auth-screen').style.display = 'none';
         
-        // Proteção VIP Criador
+        // Verifica se é Conta de Criador (Admin)
         const isCreator = EMAILS_CRIADORES.includes(user.email);
         if (isCreator) {
-            db.ref('users/' + user.uid + '/assinatura').update({ status: 'ativo', plano: 'Criador VIP' });
+            db.ref('users/' + user.uid + '/assinatura').update({ status: 'ativo', plano: 'VIP Premium' });
         }
 
         // Listener da Assinatura
@@ -113,10 +124,16 @@ auth.onAuthStateChanged(user => {
             atualizarUIBaseadoNoStatus(statusAssinatura, planoAtual);
         });
 
-        // Listener da Watchlist (Minha Lista)
+        // Listener da Biblioteca (Minha Lista e Perfil)
         db.ref('users/' + user.uid + '/biblioteca').on('value', snapshot => {
-            biblioteca = snapshot.val() || { watchlist: {} };
-            if(!biblioteca.watchlist) biblioteca.watchlist = {};
+            const data = snapshot.val() || {};
+            biblioteca.watchlist = data.watchlist || {};
+            biblioteca.perfil = data.perfil || { nome: "Utilizador", avatar: avataresSeguros[0] };
+            
+            // Atualiza UI de perfil
+            document.getElementById('user-name-pc').innerText = biblioteca.perfil.nome;
+            document.getElementById('user-avatar-pc').src = biblioteca.perfil.avatar;
+            
             if(document.getElementById('section-watchlist').style.display === 'block') renderizarWatchlist();
         });
 
@@ -148,7 +165,6 @@ function atualizarUIBaseadoNoStatus(status, plano) {
     else {
         document.getElementById('app-content').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'flex';
-        document.getElementById('plans-grid-container').style.display = 'block';
     }
 }
 
@@ -160,33 +176,44 @@ function assinarPlanoGratis() {
     showToast("Plano Grátis ativado!");
 }
 
-function abrirModalPagamento(planoNome, preco) {
-    document.getElementById('selected-plan-name').innerText = planoNome;
-    document.getElementById('selected-plan-price').innerText = preco;
+function abrirModalPagamento() {
     document.getElementById('paymentModal').style.display = 'flex'; 
     lockScroll(true); 
 
-    // Lógica Automática de Aprovação (Simulação de Webhook)
-    setTimeout(() => {
+    // Lógica Automática de Aprovação (Simulação Webhook)
+    clearTimeout(payTimeout);
+    payTimeout = setTimeout(() => {
         const user = auth.currentUser;
         if(user && document.getElementById('paymentModal').style.display === 'flex') {
-            db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: planoNome });
+            db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
             fecharModalPagamento();
             showToast("✅ Pagamento reconhecido automaticamente! Bem-vindo(a) ao VIP.");
         }
-    }, 7000); // Aprova automaticamente em 7 segundos para demonstração
+    }, 7000); 
 }
 
 function fecharModalPagamento() { 
+    clearTimeout(payTimeout);
     document.getElementById('paymentModal').style.display = 'none'; 
     lockScroll(false); 
+}
+
+function solicitarConfirmacaoPix() {
+    // Botão de avanço rápido para a simulação
+    const user = auth.currentUser;
+    if(user) {
+        clearTimeout(payTimeout);
+        db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
+        fecharModalPagamento();
+        showToast("✅ Transferência Confirmada! Bem-vindo(a) ao VIP.");
+    }
 }
 
 function copiarChavePix() {
     const inputPix = document.getElementById("pix-key-input");
     inputPix.select(); inputPix.setSelectionRange(0, 99999);
     try { navigator.clipboard.writeText(inputPix.value); showToast("Chave PIX copiada!"); } 
-    catch(e) { document.execCommand("copy"); showToast("Chave PIX copiada!"); }
+    catch(e) { document.execCommand("copy"); showToast("Chave copiada manualmente."); }
 }
 
 function abrirTelaPlanosDeUpgrade() {
@@ -196,14 +223,107 @@ function abrirTelaPlanosDeUpgrade() {
 }
 
 function cancelarUpgrade() {
-    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'ativo', plano: 'Grátis' });
+    db.ref('users/' + currentUserUID + '/assinatura').update({ status: 'ativo' });
+}
+
+// ==========================================
+// PERFIL E EDIÇÃO
+// ==========================================
+function abrirModalPerfil() {
+    document.getElementById('profile-plan-name').innerText = planoAtual || 'Nenhum';
+    if(planoAtual === 'Grátis' || planoAtual === null) {
+        document.getElementById('btn-upgrade-plan').style.display = 'block';
+    } else {
+        document.getElementById('btn-upgrade-plan').style.display = 'none';
+    }
+    
+    document.getElementById('input-profile-name').value = biblioteca.perfil.nome;
+    avatarTemporario = biblioteca.perfil.avatar;
+    renderizarAvatares();
+
+    document.getElementById('profileModal').style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function fecharModalPerfil() { 
+    document.getElementById('profileModal').style.display = 'none'; 
+    document.body.classList.remove('modal-open'); 
+}
+
+function renderizarAvatares() {
+    const grid = document.getElementById('default-avatars-grid');
+    grid.innerHTML = '';
+    avataresSeguros.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.className = 'avatar-option';
+        if (url === avatarTemporario) img.style.border = '2px solid var(--primary)';
+        img.onclick = () => {
+            avatarTemporario = url;
+            renderizarAvatares();
+        };
+        grid.appendChild(img);
+    });
+}
+
+function salvarPerfil() {
+    const nome = document.getElementById('input-profile-name').value.trim() || "Utilizador";
+    biblioteca.perfil.nome = nome;
+    biblioteca.perfil.avatar = avatarTemporario;
+    
+    if(currentUserUID) {
+        db.ref('users/' + currentUserUID + '/biblioteca/perfil').set(biblioteca.perfil);
+    }
+    fecharModalPerfil();
+    showToast("Perfil atualizado!");
+}
+
+// ==========================================
+// MINHA LISTA (WATCHLIST) CORRIGIDA
+// ==========================================
+function alternarWatchlist() {
+    if(!itemDetalheAtual) return;
+    const id = itemDetalheAtual.id;
+    
+    if (biblioteca.watchlist[id]) {
+        delete biblioteca.watchlist[id];
+        showToast("Removido da Lista.");
+    } else {
+        biblioteca.watchlist[id] = itemDetalheAtual;
+        showToast("Adicionado à Lista!");
+    }
+    
+    if (currentUserUID) {
+        db.ref('users/' + currentUserUID + '/biblioteca/watchlist').set(biblioteca.watchlist);
+    }
+    
+    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ A Minha Lista";
+}
+
+function renderizarWatchlist() {
+    const grid = document.getElementById('watchlist-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    const items = Object.values(biblioteca.watchlist);
+    if(items.length === 0) {
+        grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1;">A sua lista está vazia.</p>';
+    } else {
+        items.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'movie-card';
+            card.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}">`;
+            card.onclick = () => abrirDetalhes(item.id, item.type || item.media_type);
+            grid.appendChild(card);
+        });
+    }
 }
 
 // ==========================================
 // ABAS E NAVEGAÇÃO
 // ==========================================
 function esconderSeccoes() {
-    const seccoes = ['section-home', 'section-movies', 'section-series', 'section-animes', 'section-doramas', 'section-search', 'section-watchlist'];
+    const seccoes = ['section-home', 'section-movies', 'section-series', 'section-animes', 'section-doramas', 'section-search', 'section-watchlist', 'section-chat'];
     seccoes.forEach(s => { const el = document.getElementById(s); if(el) el.style.display = 'none'; });
 }
 
@@ -216,6 +336,7 @@ function setNavActive(id) {
     if(id === 'nav-home') document.getElementById('mob-nav-home').classList.add('active-nav');
     else if(['nav-movies', 'nav-series', 'nav-animes', 'nav-doramas'].includes(id)) document.getElementById('mob-nav-titulos').classList.add('active-nav');
     else if(id === 'section-search') document.getElementById('mob-nav-search').classList.add('active-nav');
+    else if(id === 'section-chat') document.getElementById('mob-nav-chat').classList.add('active-nav');
 }
 
 function toggleSubmenu() {
@@ -229,6 +350,7 @@ function irParaSeries() { esconderSeccoes(); setNavActive('nav-series'); documen
 function irParaAnimes() { esconderSeccoes(); setNavActive('nav-animes'); document.getElementById('section-animes').style.display = 'block'; carregarAbaAnimes(); }
 function irParaDoramas() { esconderSeccoes(); setNavActive('nav-doramas'); document.getElementById('section-doramas').style.display = 'block'; carregarAbaDoramas(); }
 function irParaWatchlist() { esconderSeccoes(); setNavActive(''); document.getElementById('section-watchlist').style.display = 'block'; renderizarWatchlist(); }
+function irParaChat() { esconderSeccoes(); setNavActive('section-chat'); document.getElementById('section-chat').style.display = 'block'; }
 
 // ==========================================
 // LIMITES DA VERSÃO GRÁTIS (PESQUISA)
@@ -280,46 +402,6 @@ function iniciarBusca(query) {
             container.innerHTML = '<p style="color:#aaa;">Nada encontrado.</p>';
         }
     }, 800);
-}
-
-// ==========================================
-// MINHA LISTA (WATCHLIST) NO FIREBASE
-// ==========================================
-let itemDetalheAtual = null;
-
-function alternarWatchlist() {
-    if(!itemDetalheAtual) return;
-    const id = itemDetalheAtual.id;
-    
-    if (biblioteca.watchlist[id]) {
-        delete biblioteca.watchlist[id];
-        showToast("Removido da Lista.");
-    } else {
-        biblioteca.watchlist[id] = itemDetalheAtual;
-        showToast("Adicionado à Lista!");
-    }
-    
-    if (currentUserUID) db.ref('users/' + currentUserUID + '/biblioteca/watchlist').set(biblioteca.watchlist);
-    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
-}
-
-function renderizarWatchlist() {
-    const grid = document.getElementById('watchlist-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    
-    const items = Object.values(biblioteca.watchlist);
-    if(items.length === 0) {
-        grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1;">A sua lista está vazia.</p>';
-    } else {
-        items.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'movie-card';
-            card.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}">`;
-            card.onclick = () => abrirDetalhes(item.id, item.type || item.media_type);
-            grid.appendChild(card);
-        });
-    }
 }
 
 // ==========================================
@@ -379,6 +461,9 @@ async function carregarHome() {
         document.getElementById('hero-title').innerText = item.title || item.name;
         document.getElementById('hero-desc').innerText = item.overview;
         document.getElementById('hero-play-btn').onclick = () => abrirPlayer(item.id, item.media_type || 'movie');
+        
+        // Atualiza itemSelecionado para o Info funcionar
+        itemDetalheAtual = { id: item.id, type: item.media_type || 'movie', poster_path: item.poster_path, title: item.title || item.name };
         document.getElementById('hero-info-btn').onclick = () => abrirDetalhes(item.id, item.media_type || 'movie');
     }
     
@@ -487,17 +572,32 @@ document.getElementById('close-player-btn')?.addEventListener('click', () => {
 });
 
 // ==========================================
-// PERFIL
+// CINEBOT CHAT
 // ==========================================
-function abrirModalPerfil() {
-    document.getElementById('profile-plan-name').innerText = planoAtual || 'Nenhum';
-    if(planoAtual === 'Grátis' || planoAtual === null) {
-        document.getElementById('btn-upgrade-plan').style.display = 'block';
-    } else {
-        document.getElementById('btn-upgrade-plan').style.display = 'none';
-    }
-    document.getElementById('profileModal').style.display = 'flex';
-    document.body.classList.add('modal-open');
+function enviarChat() {
+    const input = document.getElementById('chat-input');
+    const txt = input.value.trim();
+    if(!txt) return;
+    
+    const msgs = document.getElementById('chat-messages');
+    msgs.innerHTML += `<div class="message user-message">${txt}</div>`;
+    input.value = '';
+    
+    setTimeout(async () => {
+        const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(txt)}`);
+        if(res.results && res.results.length > 0 && res.results[0].poster_path) {
+            const item = res.results[0];
+            msgs.innerHTML += `
+                <div class="message bot-message" style="display:flex; gap:10px; cursor:pointer;" onclick="abrirDetalhes(${item.id}, '${item.media_type || 'movie'}')">
+                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px; width:50px;">
+                    <div>
+                        <strong style="color:var(--primary)">${item.title || item.name}</strong>
+                        <p style="font-size:0.8em; margin-top:5px; color:#aaa;">Clique para ver mais.</p>
+                    </div>
+                </div>`;
+        } else {
+            msgs.innerHTML += `<div class="message bot-message">Desculpa, não encontrei nada.</div>`;
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+    }, 600);
 }
-
-function fecharModalPerfil() { document.getElementById('profileModal').style.display = 'none'; document.body.classList.remove('modal-open'); }
