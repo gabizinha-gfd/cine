@@ -16,9 +16,6 @@ const db = firebase.database();
 const auth = firebase.auth();
 
 const TMDB_KEY = "17c56e3825d7fbae6581866083d0d778";
-const PIX_KEY = "83993967296";
-
-// E-mail do Administrador (VIP Ilimitado Sempre)
 const EMAILS_CRIADORES = ["roberci.azevedo@academico.ifpb.edu.br"];
 
 const avataresSeguros = [
@@ -33,13 +30,13 @@ let currentUserUID = null;
 let statusAssinatura = "inativo"; 
 let planoAtual = null;
 let debounceTimer;
-let payTimeout;
+let payTimeouts = []; // Para o Bot Anti-fraude
 let biblioteca = { watchlist: {}, perfil: { nome: "Utilizador", avatar: avataresSeguros[0] } };
 let itemDetalheAtual = null;
 let avatarTemporario = avataresSeguros[0];
 
 // ==========================================
-// UTILITÁRIOS
+// UTILITÁRIOS & SMART TV NAV
 // ==========================================
 function showToast(msg) {
     const c = document.getElementById('toast-container');
@@ -47,7 +44,10 @@ function showToast(msg) {
     const t = document.createElement('div');
     t.className = 'toast animate-fade-in'; t.innerText = msg;
     c.appendChild(t);
-    setTimeout(() => t.remove(), 4000);
+    setTimeout(() => {
+        t.style.animation = 'fadeOut 0.3s ease forwards';
+        setTimeout(() => t.remove(), 300);
+    }, 4000);
 }
 
 window.addEventListener('scroll', () => {
@@ -57,6 +57,13 @@ window.addEventListener('scroll', () => {
 
 function lockScroll(lock) { document.body.classList.toggle('no-scroll', lock); }
 function hojeStr() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+
+// Permitir clicar usando a tecla "Enter" no comando da TV
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && document.activeElement && document.activeElement.tabIndex === 0) {
+        document.activeElement.click();
+    }
+});
 
 // ==========================================
 // AUTENTICAÇÃO
@@ -110,13 +117,11 @@ auth.onAuthStateChanged(user => {
         currentUserUID = user.uid;
         document.getElementById('auth-screen').style.display = 'none';
         
-        // Verifica se é Conta de Criador (Admin)
         const isCreator = EMAILS_CRIADORES.includes(user.email);
         if (isCreator) {
             db.ref('users/' + user.uid + '/assinatura').update({ status: 'ativo', plano: 'VIP Premium' });
         }
 
-        // Listener da Assinatura
         db.ref('users/' + user.uid + '/assinatura').on('value', snapshot => {
             const data = snapshot.val() || { status: 'inativo' };
             statusAssinatura = data.status;
@@ -124,14 +129,16 @@ auth.onAuthStateChanged(user => {
             atualizarUIBaseadoNoStatus(statusAssinatura, planoAtual);
         });
 
-        // Listener da Biblioteca (Minha Lista e Perfil)
         db.ref('users/' + user.uid + '/biblioteca').on('value', snapshot => {
             const data = snapshot.val() || {};
             biblioteca.watchlist = data.watchlist || {};
             biblioteca.perfil = data.perfil || { nome: "Utilizador", avatar: avataresSeguros[0] };
             
-            // Atualiza UI de perfil
-            document.getElementById('user-name-pc').innerText = biblioteca.perfil.nome;
+            const namePc = document.getElementById('user-name-pc');
+            if(namePc) {
+                namePc.innerText = biblioteca.perfil.nome;
+                namePc.style.display = 'inline'; // TV support
+            }
             document.getElementById('user-avatar-pc').src = biblioteca.perfil.avatar;
             
             if(document.getElementById('section-watchlist').style.display === 'block') renderizarWatchlist();
@@ -161,15 +168,14 @@ function atualizarUIBaseadoNoStatus(status, plano) {
         document.getElementById('subscription-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
         if(document.getElementById('home-catalog').innerHTML === '') irParaHome();
-    } 
-    else {
+    } else {
         document.getElementById('app-content').style.display = 'none';
         document.getElementById('subscription-screen').style.display = 'flex';
     }
 }
 
 // ==========================================
-// FLUXO DE COMPRA E VERIFICAÇÃO AUTOMÁTICA
+// SIMULAÇÃO DO BOT ANTI-FRAUDE (PIX)
 // ==========================================
 function assinarPlanoGratis() {
     db.ref('users/' + currentUserUID + '/assinatura').set({ status: 'ativo', plano: 'Grátis' });
@@ -180,33 +186,45 @@ function abrirModalPagamento() {
     document.getElementById('paymentModal').style.display = 'flex'; 
     lockScroll(true); 
 
-    // Lógica Automática de Aprovação (Simulação Webhook)
-    clearTimeout(payTimeout);
-    payTimeout = setTimeout(() => {
+    // Reset Bot UI
+    const box = document.getElementById('bot-verification-box');
+    const text = document.getElementById('bot-status-text');
+    box.className = 'bot-status-box';
+    text.innerText = 'A aguardar o seu pagamento PIX...';
+    
+    // Clear previous intervals
+    payTimeouts.forEach(clearTimeout);
+    payTimeouts = [];
+
+    // Simulate Anti-Fraud Bot logic
+    payTimeouts.push(setTimeout(() => {
+        if(document.getElementById('paymentModal').style.display !== 'none') {
+            box.className = 'bot-status-box checking';
+            text.innerText = '🤖 Bot Anti-Fraude: A verificar transação com o banco...';
+        }
+    }, 4000));
+
+    payTimeouts.push(setTimeout(() => {
+        if(document.getElementById('paymentModal').style.display !== 'none') {
+            box.className = 'bot-status-box approved';
+            text.innerText = '✅ Pagamento Confirmado com Segurança! A ativar VIP...';
+        }
+    }, 8000));
+
+    payTimeouts.push(setTimeout(() => {
         const user = auth.currentUser;
         if(user && document.getElementById('paymentModal').style.display === 'flex') {
             db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
             fecharModalPagamento();
-            showToast("✅ Pagamento reconhecido automaticamente! Bem-vindo(a) ao VIP.");
+            showToast("🎉 Bem-vindo(a) ao VIP Premium!");
         }
-    }, 7000); 
+    }, 9500)); 
 }
 
 function fecharModalPagamento() { 
-    clearTimeout(payTimeout);
+    payTimeouts.forEach(clearTimeout);
     document.getElementById('paymentModal').style.display = 'none'; 
     lockScroll(false); 
-}
-
-function solicitarConfirmacaoPix() {
-    // Botão de avanço rápido para a simulação
-    const user = auth.currentUser;
-    if(user) {
-        clearTimeout(payTimeout);
-        db.ref('users/' + user.uid + '/assinatura').set({ status: 'ativo', plano: 'VIP Premium' });
-        fecharModalPagamento();
-        showToast("✅ Transferência Confirmada! Bem-vindo(a) ao VIP.");
-    }
 }
 
 function copiarChavePix() {
@@ -257,11 +275,13 @@ function renderizarAvatares() {
         const img = document.createElement('img');
         img.src = url;
         img.className = 'avatar-option';
-        if (url === avatarTemporario) img.style.border = '2px solid var(--primary)';
-        img.onclick = () => {
-            avatarTemporario = url;
-            renderizarAvatares();
-        };
+        img.tabIndex = 0; // Smart TV
+        if (url === avatarTemporario) img.classList.add('selected');
+        
+        const setAvatar = () => { avatarTemporario = url; renderizarAvatares(); };
+        img.onclick = setAvatar;
+        img.onkeydown = (e) => { if(e.key === 'Enter') setAvatar(); };
+        
         grid.appendChild(img);
     });
 }
@@ -275,11 +295,11 @@ function salvarPerfil() {
         db.ref('users/' + currentUserUID + '/biblioteca/perfil').set(biblioteca.perfil);
     }
     fecharModalPerfil();
-    showToast("Perfil atualizado!");
+    showToast("Perfil atualizado com sucesso!");
 }
 
 // ==========================================
-// MINHA LISTA (WATCHLIST) CORRIGIDA
+// MINHA LISTA (WATCHLIST)
 // ==========================================
 function alternarWatchlist() {
     if(!itemDetalheAtual) return;
@@ -307,13 +327,15 @@ function renderizarWatchlist() {
     
     const items = Object.values(biblioteca.watchlist);
     if(items.length === 0) {
-        grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1;">A sua lista está vazia.</p>';
+        grid.innerHTML = '<p style="color:#aaa; grid-column:1/-1; font-size: 1.2rem;" tabindex="0">A sua lista está vazia.</p>';
     } else {
         items.forEach(item => {
             const card = document.createElement('div');
             card.className = 'movie-card';
-            card.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}">`;
+            card.tabIndex = 0; // TV
+            card.innerHTML = `<img src="https://image.tmdb.org/t/p/w300${item.poster_path}">`;
             card.onclick = () => abrirDetalhes(item.id, item.type || item.media_type);
+            card.onkeydown = (e) => { if(e.key === 'Enter') abrirDetalhes(item.id, item.type || item.media_type); };
             grid.appendChild(card);
         });
     }
@@ -339,10 +361,7 @@ function setNavActive(id) {
     else if(id === 'section-chat') document.getElementById('mob-nav-chat').classList.add('active-nav');
 }
 
-function toggleSubmenu() {
-    const sub = document.getElementById('mobile-submenu');
-    sub.classList.toggle('open');
-}
+function toggleSubmenu() { document.getElementById('mobile-submenu').classList.toggle('open'); }
 
 function irParaHome() { esconderSeccoes(); setNavActive('nav-home'); document.getElementById('section-home').style.display = 'block'; carregarHome(); }
 function irParaFilmes() { esconderSeccoes(); setNavActive('nav-movies'); document.getElementById('section-movies').style.display = 'block'; carregarAbaFilmes(); }
@@ -363,14 +382,14 @@ function podePesquisar() {
     if (contagens.data !== h) contagens = { data: h, count: 0 };
     
     if (contagens.count >= 3) {
-        document.getElementById('search-limit-info').innerHTML = `<p style="color:#f1c40f; padding: 10px; background:#333; border-radius:8px;">Limite de 3 buscas grátis atingido hoje. <a href="#" onclick="abrirTelaPlanosDeUpgrade()" style="color:#fff;">Seja VIP</a></p>`;
+        document.getElementById('search-limit-info').innerHTML = `<p style="color:#f1c40f; padding: 15px; background:#222; border-radius:8px; font-size:1.1rem;" tabindex="0">Limite de 3 buscas grátis atingido hoje. <a href="#" onclick="abrirTelaPlanosDeUpgrade()" style="color:#fff;">Seja VIP</a></p>`;
         return false;
     }
     
     contagens.count++;
     localStorage.setItem('cine_buscas', JSON.stringify(contagens));
     const restam = 3 - contagens.count;
-    document.getElementById('search-limit-info').innerHTML = `<p style="color:#aaa; font-size:0.9em;">Plano Grátis: Restam ${restam} buscas hoje.</p>`;
+    document.getElementById('search-limit-info').innerHTML = `<p style="color:#aaa; font-size:1.1em;" tabindex="0">Plano Grátis: Restam ${restam} buscas hoje.</p>`;
     return true;
 }
 
@@ -378,6 +397,7 @@ function irParaBusca() {
     esconderSeccoes(); setNavActive('section-search'); 
     document.getElementById('section-search').style.display = 'block'; 
     document.getElementById('search-limit-info').innerHTML = ''; 
+    document.getElementById('mobile-search-input').focus();
 }
 
 document.getElementById('main-search-input')?.addEventListener('input', (e) => iniciarBusca(e.target.value));
@@ -393,13 +413,13 @@ function iniciarBusca(query) {
         if (!podePesquisar()) return;
         
         const container = document.getElementById('search-grid');
-        container.innerHTML = '<p style="color:#aaa;">Buscando...</p>';
+        container.innerHTML = '<div class="video-loader"></div>';
         const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(query)}`);
         
         if (res.results && res.results.length > 0) {
             renderizar(res.results.filter(i => i.poster_path), 'search-grid');
         } else {
-            container.innerHTML = '<p style="color:#aaa;">Nada encontrado.</p>';
+            container.innerHTML = '<p style="color:#aaa; font-size: 1.2rem;" tabindex="0">Nenhum resultado encontrado.</p>';
         }
     }, 800);
 }
@@ -423,8 +443,13 @@ function renderizar(items, containerId, forceType = null) {
         if(!item.poster_path) return;
         const div = document.createElement('div');
         div.className = 'movie-card';
-        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w200${item.poster_path}" loading="lazy">`;
-        div.onclick = () => abrirDetalhes(item.id, forceType || item.media_type || (item.first_air_date ? 'tv' : 'movie'));
+        div.tabIndex = 0; // Smart TV
+        div.innerHTML = `<img src="https://image.tmdb.org/t/p/w300${item.poster_path}" loading="lazy">`;
+        
+        const action = () => abrirDetalhes(item.id, forceType || item.media_type || (item.first_air_date ? 'tv' : 'movie'));
+        div.onclick = action;
+        div.onkeydown = (e) => { if(e.key === 'Enter') action(); };
+        
         container.appendChild(div);
     });
 }
@@ -436,11 +461,11 @@ async function renderizarRow(titulo, endpoint, containerMaster, type) {
     const wrapper = document.createElement('div');
     wrapper.className = 'catalog-row';
     wrapper.innerHTML = `
-        <h3>${titulo}</h3>
+        <h3 tabindex="0">${titulo}</h3>
         <div class="carousel-container">
-            <button class="carousel-btn left-btn" onclick="scrollCarousel('${rowId}', -1)">&#10094;</button>
+            <button class="carousel-btn left-btn" onclick="scrollCarousel('${rowId}', -1)" tabindex="-1">&#10094;</button>
             <div id="${rowId}" class="movie-row"></div>
-            <button class="carousel-btn right-btn" onclick="scrollCarousel('${rowId}', 1)">&#10095;</button>
+            <button class="carousel-btn right-btn" onclick="scrollCarousel('${rowId}', 1)" tabindex="-1">&#10095;</button>
         </div>`;
     master.appendChild(wrapper);
 
@@ -462,7 +487,6 @@ async function carregarHome() {
         document.getElementById('hero-desc').innerText = item.overview;
         document.getElementById('hero-play-btn').onclick = () => abrirPlayer(item.id, item.media_type || 'movie');
         
-        // Atualiza itemSelecionado para o Info funcionar
         itemDetalheAtual = { id: item.id, type: item.media_type || 'movie', poster_path: item.poster_path, title: item.title || item.name };
         document.getElementById('hero-info-btn').onclick = () => abrirDetalhes(item.id, item.media_type || 'movie');
     }
@@ -506,13 +530,13 @@ async function abrirDetalhes(id, type) {
     const data = await fetchTMDB(`/${type}/${id}`);
     itemDetalheAtual = { id, type, poster_path: data.poster_path, title: data.title || data.name }; 
     
-    document.getElementById('modal-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/w780${data.backdrop_path || data.poster_path})`;
+    document.getElementById('modal-banner').style.backgroundImage = `url(https://image.tmdb.org/t/p/w1280${data.backdrop_path || data.poster_path})`;
     document.getElementById('modal-title').innerText = data.title || data.name;
     document.getElementById('modal-year').innerText = (data.release_date || data.first_air_date || '').substring(0,4);
     document.getElementById('modal-rating').innerText = data.vote_average ? data.vote_average.toFixed(1) : '';
     document.getElementById('modal-overview').innerText = data.overview;
     
-    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ Minha Lista";
+    document.getElementById('modal-watchlist-btn').innerText = biblioteca.watchlist[id] ? "✔ Na Minha Lista" : "➕ A Minha Lista";
     document.getElementById('modal-play-btn').onclick = () => abrirPlayer(id, type);
 
     const epContainer = document.getElementById('episodes-container');
@@ -531,24 +555,33 @@ async function abrirDetalhes(id, type) {
 
     document.getElementById('modal-details').style.display = 'flex';
     document.body.classList.add('modal-open');
+    document.getElementById('modal-play-btn').focus(); // Foco automático na TV
 }
 
 async function carregarEpsLista(tvId, season) {
     const lista = document.getElementById('modal-episodes-list');
-    lista.innerHTML = '<p style="color:#aaa;">Carregando...</p>';
+    lista.innerHTML = '<div class="video-loader"></div>';
     const data = await fetchTMDB(`/tv/${tvId}/season/${season}`);
     lista.innerHTML = '';
     if (data.episodes) {
         data.episodes.forEach(ep => {
-            const img = ep.still_path ? `https://image.tmdb.org/t/p/w200${ep.still_path}` : '';
-            lista.innerHTML += `
-                <div class="episode-item" onclick="abrirPlayerEp('${tvId}', '${season}', '${ep.episode_number}')" style="display:flex; gap:15px; margin-bottom:10px; cursor:pointer;">
-                    ${img ? `<img src="${img}" style="width:120px; border-radius:4px;">` : ''}
-                    <div>
-                        <h4 style="font-size:0.9em; margin-bottom:5px; color:#fff;">${ep.episode_number}. ${ep.name}</h4>
-                        <p style="font-size:0.8em; color:#888;">▶ Assistir</p>
-                    </div>
+            const img = ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : '';
+            
+            const div = document.createElement('div');
+            div.className = 'episode-item';
+            div.tabIndex = 0; // Smart TV
+            div.innerHTML = `
+                ${img ? `<img src="${img}">` : ''}
+                <div>
+                    <h4 style="font-size:1.1em; margin-bottom:5px; color:#fff;">${ep.episode_number}. ${ep.name}</h4>
+                    <p style="font-size:0.9em; color:#888;">▶ Assistir Agora</p>
                 </div>`;
+            
+            const action = () => abrirPlayerEp(tvId, season, ep.episode_number);
+            div.onclick = action;
+            div.onkeydown = (e) => { if(e.key === 'Enter') action(); };
+            
+            lista.appendChild(div);
         });
     }
 }
@@ -557,13 +590,17 @@ function fecharDetalhes() { document.getElementById('modal-details').style.displ
 
 function abrirPlayer(id, type) {
     const iframe = document.getElementById('videoPlayer');
+    document.getElementById('video-loader').style.display = 'block';
     iframe.src = `https://mgeb.top/embed/${type === 'tv' ? 'tv/'+id+'/1/1' : 'movie/'+id}?player=vidstack#color=e50914`;
     document.getElementById('streaming-player-screen').style.display = 'flex';
+    document.getElementById('close-player-btn').focus();
 }
 function abrirPlayerEp(id, s, e) {
     const iframe = document.getElementById('videoPlayer');
+    document.getElementById('video-loader').style.display = 'block';
     iframe.src = `https://mgeb.top/embed/tv/${id}/${s}/${e}?player=vidstack#color=e50914`;
     document.getElementById('streaming-player-screen').style.display = 'flex';
+    document.getElementById('close-player-btn').focus();
 }
 
 document.getElementById('close-player-btn')?.addEventListener('click', () => {
@@ -580,23 +617,31 @@ function enviarChat() {
     if(!txt) return;
     
     const msgs = document.getElementById('chat-messages');
-    msgs.innerHTML += `<div class="message user-message">${txt}</div>`;
+    msgs.innerHTML += `<div class="message user-message" tabindex="0">${txt}</div>`;
     input.value = '';
     
     setTimeout(async () => {
         const res = await fetchTMDB(`/search/multi?query=${encodeURIComponent(txt)}`);
         if(res.results && res.results.length > 0 && res.results[0].poster_path) {
             const item = res.results[0];
-            msgs.innerHTML += `
-                <div class="message bot-message" style="display:flex; gap:10px; cursor:pointer;" onclick="abrirDetalhes(${item.id}, '${item.media_type || 'movie'}')">
-                    <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px; width:50px;">
-                    <div>
-                        <strong style="color:var(--primary)">${item.title || item.name}</strong>
-                        <p style="font-size:0.8em; margin-top:5px; color:#aaa;">Clique para ver mais.</p>
-                    </div>
+            const div = document.createElement('div');
+            div.className = 'message bot-message';
+            div.style.cssText = 'display:flex; gap:15px; cursor:pointer; align-items: center;';
+            div.tabIndex = 0;
+            div.innerHTML = `
+                <img src="https://image.tmdb.org/t/p/w92${item.poster_path}" style="border-radius:4px; width:60px;">
+                <div>
+                    <strong style="color:var(--primary); font-size:1.1rem;">${item.title || item.name}</strong>
+                    <p style="font-size:0.9em; margin-top:5px; color:#aaa;">Clique ou prima Enter para ver mais.</p>
                 </div>`;
+            
+            const action = () => abrirDetalhes(item.id, item.media_type || 'movie');
+            div.onclick = action;
+            div.onkeydown = (e) => { if(e.key === 'Enter') action(); };
+            msgs.appendChild(div);
+            
         } else {
-            msgs.innerHTML += `<div class="message bot-message">Desculpa, não encontrei nada.</div>`;
+            msgs.innerHTML += `<div class="message bot-message" tabindex="0">Desculpa, não encontrei nada. Tente outro título!</div>`;
         }
         msgs.scrollTop = msgs.scrollHeight;
     }, 600);
